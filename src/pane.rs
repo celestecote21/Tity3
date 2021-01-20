@@ -5,9 +5,11 @@ use std::io::{Write, Read};
 use std::sync::{Arc, RwLock, mpsc};
 use std::sync::mpsc::{TryRecvError, Sender, Receiver};
 use std::fs::File;
+use std::str;
 use crate::pty::*;
 use crate::buffer_file::*;
 use crate::window_notif::WindowNotif;
+use crate::size_utilis::*;
 
 #[derive(PartialEq)]
 pub struct PaneIdentifier {
@@ -25,7 +27,8 @@ pub struct Pane {
     y: u16,
     size: Size,
     pub id: PaneIdentifier,
-    buffer: Arc<RwLock<BufferFile>>,
+    buffer: Arc<RwLock<StdoutBufferLock>>,
+    cursor: Coordinate,
     tty_master_out: File,
     tx_input_control: Sender<bool>,
     rx_draw_output: Receiver<bool>,
@@ -37,29 +40,6 @@ pub enum PaneError {
     PaneCreate,
     PaneControl,
     PaneRezise,
-}
-
-pub struct Rect {
-    x: u16,
-    y: u16,
-    w: u16,
-    h: u16,
-}
-
-impl Rect {
-    pub fn new(x: u16, y: u16, w: u16, h: u16) -> Rect
-    {
-        Rect {
-            x,
-            y,
-            w,
-            h,
-        }
-    }
-    pub fn get_size(&self) -> Size
-    {
-        Size {w: self.w, h: self.h}
-    }
 }
 
 impl PaneIdentifier {
@@ -93,7 +73,8 @@ impl Pane {
             x: rect.x,
             y: rect.y,
             size,
-            buffer: Arc::new(RwLock::new(BufferFile::new().unwrap())),
+            buffer: Arc::new(RwLock::new(StdoutBufferLock::new(rect.clone()).unwrap())),
+            cursor: Coordinate {x: rect.x, y: rect.y},
             id,
             tty_master_out: stdio_master.try_clone().unwrap(),
             pty_child: pty_handle.clone(),
@@ -115,14 +96,14 @@ impl Pane {
                 let mut buffer = out_buffer.write().unwrap();
 
                 let read = &packet[..count];
-                buffer.write_all(&read).unwrap();
-                buffer.flush().unwrap();
+                buffer.write(&read).unwrap();
+                //buffer.flush().unwrap();
                 match tx_draw_output.send(true) {
                     Err(_) => break,
                     _ => ()
                 };
-                notif_wind.send(WindowNotif::Refresh).unwrap();
                 drop(buffer);
+                notif_wind.send(WindowNotif::Refresh).unwrap();
             }
             notif_wind.send(WindowNotif::SupressPane(cpy_id)).unwrap();
         });
@@ -144,23 +125,26 @@ impl Pane {
                         Err(_) => return,
                         _ => (),
                     }
-                } else {
+                } else { // if has not the focus block until recive the focus
                     have_focus = rx_input_control.recv().unwrap();
                 }
             }
         });
         Ok(res)
     }
-    pub fn draw(&self) {
-        /*match self.rx_draw_output.try_recv() {
-            Ok(true) => (),
-            _ => return,
-        }*/
+
+    pub fn draw(&mut self) {
         let mut out = &self.tty_master_out;
         let buffer_read = self.buffer.read().unwrap();
-        write!(out, "{}", termion::cursor::Goto(self.x, self.y)).unwrap();
-        write!(out, "{}",  buffer_read.to_string()).unwrap();
-        out.flush().unwrap();
+        let mut buffer = [0 as u8; 4069];
+        self.cursor.y = self.y;
+        let mut read_size = (buffer_read).read(&mut buffer[..], &mut self.cursor).unwrap();
+        //print!("merde {} {:?}\n", read_size, &buffer[..read_size]);
+        while read_size != 0 {
+            write!(out, "{}", str::from_utf8(&buffer[..read_size]).unwrap()).unwrap();
+            read_size = buffer_read.read(&mut buffer[..], &mut self.cursor).unwrap();
+        }
+        self.cursor.y = 0;
     }
 
     // fonction temporaire la methode d'ecriture dans le stout changera

@@ -33,10 +33,10 @@ fn add_pane(list_pane: &mut Vec<Pane>, pane: Pane, internal_wind: &mut WindowsIn
 
 fn update_ui(list_pane: &mut Vec<Pane>)
 {
-    match list_pane.first() {
+    /*match list_pane.first() {
         Some(pane) => pane.clear(),
         _ => return,
-    }
+    }*/
     list_pane.iter_mut().rev().for_each(|pane| {
         pane.draw();
     });

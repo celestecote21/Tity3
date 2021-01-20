@@ -9,9 +9,11 @@ mod buffer_file;
 mod windows;
 mod window_notif;
 mod keyboard;
+mod size_utilis;
 use windows::*;
 
 fn main() {
+
     // Get the standard input stream.
     let mut stdio_master = get_tty().unwrap().into_raw_mode().unwrap();
     let mut window = Window::new(stdio_master.try_clone().unwrap(), 1).unwrap();

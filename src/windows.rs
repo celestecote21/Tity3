@@ -3,6 +3,7 @@ use std::fs::File;
 use std::sync::mpsc::{self, Sender, Receiver};
 use crate::pane::*;
 use crate::window_notif::*;
+use crate::size_utilis::*;
 
 #[derive(Debug)]
 pub enum WindowError {
@@ -41,7 +42,7 @@ impl Window {
             Ok(file) => file,
             _ => return Err(WindowError::WindowNewPane)
         };
-        let rect = Rect::new((self.next_pane_id - 1) as u16 * 64, 1, 64, 32);
+        let rect = Rect::new((self.next_pane_id - 1) as u16 * 64, 0, 64, 32);
         let paneid = PaneIdentifier::new(self.wind_id, self.next_pane_id);
         let pane = match Pane::new(
             stdio_master,

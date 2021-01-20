@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 use std::os::unix::process::CommandExt;
 use std::ops;
 use libc;
+use crate::size_utilis::Size;
 
 /*
  * handleling the pty (pseudoterminal) gestion here
@@ -133,23 +134,6 @@ fn openpty(size: &Size) -> Result<(RawFd, RawFd), PtyError>
             }
     }
     Ok((masterfd, slavefd))
-}
-
-pub struct Size {
-    pub w: u16,
-    pub h: u16,
-}
-
-impl Size {
-    pub fn to_c_size(&self) -> libc::winsize
-    {
-        libc::winsize {
-            ws_row: self.h,
-            ws_col: self.w,
-            ws_xpixel: 0,
-            ws_ypixel: 0,
-        }
-    }
 }
 
 pub trait FromLibcResult: Sized {

@@ -89,7 +89,6 @@ impl StdoutBuffer {
             Some(line_str) => line_str,
             None => "",
         };
-        //print!("{}", buff_slice);
         cursor.y += 1;
         if buff_slice.len() <= 0 {
             return Ok(0);

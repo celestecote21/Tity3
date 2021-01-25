@@ -97,7 +97,6 @@ impl Pane {
 
                 let read = &packet[..count];
                 buffer.write(&read).unwrap();
-                //buffer.flush().unwrap();
                 match tx_draw_output.send(true) {
                     Err(_) => break,
                     _ => ()
@@ -139,7 +138,6 @@ impl Pane {
         let mut buffer = [0 as u8; 4069];
         self.cursor.y = self.y;
         let mut read_size = (buffer_read).read(&mut buffer[..], &mut self.cursor).unwrap();
-        //print!("merde {} {:?}\n", read_size, &buffer[..read_size]);
         while read_size != 0 {
             write!(out, "{}", str::from_utf8(&buffer[..read_size]).unwrap()).unwrap();
             read_size = buffer_read.read(&mut buffer[..], &mut self.cursor).unwrap();

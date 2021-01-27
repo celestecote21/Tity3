@@ -1,7 +1,7 @@
 extern crate termion;
 
 use std::thread;
-use std::io::{Write, Read};
+use std::io::{self, Write, Read};
 use std::sync::{Arc, RwLock, mpsc};
 use std::sync::mpsc::{TryRecvError, Sender, Receiver};
 use std::fs::File;
@@ -30,8 +30,6 @@ pub struct Pane {
     buffer: Arc<RwLock<StdoutBufferLock>>,
     cursor: Coordinate,
     tty_master_out: File,
-    tx_input_control: Sender<bool>,
-    rx_draw_output: Receiver<bool>,
     pty_child: Pty,
 }
 
@@ -62,8 +60,6 @@ impl Pane {
                id: PaneIdentifier) -> Result<Pane, PaneError>
     {
         let size = rect.get_size();
-        let (tx_input_control, rx_input_control) = mpsc::channel();
-        let (tx_draw_output, rx_draw_output) = mpsc::channel();
         let pty_handle = match Pty::create("/bin/bash", &size) {
             Err(_) => return Err(PaneError::PaneCreate),
             Ok(pty) => pty,
@@ -78,12 +74,8 @@ impl Pane {
             id,
             tty_master_out: stdio_master.try_clone().unwrap(),
             pty_child: pty_handle.clone(),
-            tx_input_control,
-            rx_draw_output,
         };
         let mut pty_handle_in = pty_handle.try_clone().unwrap();
-        let mut pty_handle_out = pty_handle.try_clone().unwrap();
-        let mut tty_master_in = stdio_master.try_clone().unwrap();
         let out_buffer = res.buffer.clone();
         // output of the pty
         thread::spawn(move || {
@@ -97,37 +89,10 @@ impl Pane {
 
                 let read = &packet[..count];
                 buffer.write(&read).unwrap();
-                match tx_draw_output.send(true) {
-                    Err(_) => break,
-                    _ => ()
-                };
                 drop(buffer);
                 notif_wind.send(WindowNotif::Refresh).unwrap();
             }
             notif_wind.send(WindowNotif::SupressPane(cpy_id)).unwrap();
-        });
-        // input of the pty
-        thread::spawn(move || {
-            let mut have_focus = true;
-            loop {
-                if have_focus {
-                    match rx_input_control.try_recv() {
-                        Ok(true) => (),
-                        Ok(false) => {
-                            have_focus = false;
-                            continue;
-                        }
-                        Err(TryRecvError::Empty) => (),
-                        _ => return,
-                    }
-                    match pipe(&mut tty_master_in, &mut pty_handle_out) {
-                        Err(_) => return,
-                        _ => (),
-                    }
-                } else { // if has not the focus block until recive the focus
-                    have_focus = rx_input_control.recv().unwrap();
-                }
-            }
         });
         Ok(res)
     }
@@ -145,6 +110,14 @@ impl Pane {
         self.cursor.y = 0;
     }
 
+    pub fn get_input(&mut self, data: &[u8], size: usize) -> io::Result<()> {
+        //match pipe(&mut tty_master_in, &mut pty_handle_out)
+        let packet = &data[..size];
+        self.tty_master_out.write_all(&packet)?;
+        self.tty_master_out.flush()?;
+        Ok(())
+    }
+
     // fonction temporaire la methode d'ecriture dans le stout changera
     pub fn clear(&self) {
         let mut out = &self.tty_master_out;
@@ -159,13 +132,5 @@ impl Pane {
     pub fn expand_h(&mut self) -> Result<(), PaneError> {
         self.size.h += 1;
         self.pty_child.resize(&self.size).map_err(|_| PaneError::PaneRezise)
-    }
-
-    pub fn take_input(&self) -> Result<(), PaneError> {
-        self.tx_input_control.send(true).map_err(|_| PaneError::PaneControl)
-    }
-
-    pub fn drop_input(&self) -> Result<(), PaneError> {
-        self.tx_input_control.send(false).map_err(|_| PaneError::PaneControl)
     }
 }

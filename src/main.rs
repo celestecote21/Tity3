@@ -10,6 +10,9 @@ mod windows;
 mod window_notif;
 mod keyboard;
 mod size_utilis;
+mod container;
+mod split;
+mod layout;
 use windows::*;
 
 fn main() {

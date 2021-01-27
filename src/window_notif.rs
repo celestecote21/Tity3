@@ -21,13 +21,9 @@ pub fn handle_windows_notif(notif: WindowNotif,
 
 fn add_pane(list_pane: &mut Vec<Pane>, pane: Pane, internal_wind: &mut WindowsInterne)
 {
-    match internal_wind.get_focused() {
-        Some(index) => list_pane[index].drop_input().unwrap(),
-        None => (),
-    }
     list_pane.push(pane); // add the pane in the list
     internal_wind.set_focused(list_pane.len() - 1); // put the focused var in the internal info of wind
-    list_pane[internal_wind.get_focused().unwrap()].take_input().unwrap(); // the last pane take the control
+    //list_pane[internal_wind.get_focused().unwrap()].take_input().unwrap(); // the last pane take the control
     update_ui(list_pane); // print all the ui
 }
 
@@ -54,9 +50,9 @@ fn supress_pane(list_pane: &mut Vec<Pane>, id: PaneIdentifier)
         }
     }
     update_ui(list_pane);
-    if index_removed != None && index_removed != Some(0) {
+    /*if index_removed != None && index_removed != Some(0) {
         list_pane[index_removed.unwrap() - 1].take_input().unwrap();
     } else if index_removed != None && !list_pane.is_empty(){
         list_pane[index_removed.unwrap() - 1].take_input().unwrap();
-    }
+    }*/
 }

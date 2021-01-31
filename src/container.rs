@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 use std::fs::File;
 use crate::size_utilis::*;
 use crate::split::Split;
-use crate::pane::PaneError;
+use crate::pane::*;
 use crate::layout::Direction;
 
 pub type ContainerList = Vec<Box<dyn Container>>;
@@ -28,7 +28,7 @@ pub enum ChildToParent {
 }
 
 pub trait Container {
-    fn new(stdio_master: File, parent_com: Sender<ChildToParent>, rect: Rect, id: String) -> Self
+    fn new(stdio_master: File, parent_com: Sender<ChildToParent>, rect: Rect, id: String) -> Result<Self, ContainerError>
         where Self: Sized;
     fn draw(&self);
     fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>;
@@ -77,13 +77,13 @@ impl MiniContainer {
             Some(re) => re,
             None => self.rect,
         };
-        Ok(Split::new_split(self.stdio_master, parent_com, rect, self.id, direction))
+        Ok(Split::new_split(self.stdio_master, parent_com, rect, self.id, direction)?)
     }
 
     pub fn to_pane(self,
                     parent_com_op: Option<Sender<ChildToParent>>,
                     rect_op: Option<Rect>)
-        -> Result<Split, ContainerError>
+        -> Result<Pane, ContainerError>
     {
         if parent_com_op.is_none() && self.parent_com_op.is_none() {
             return Err(ContainerError::BadTransform);
@@ -99,6 +99,6 @@ impl MiniContainer {
             Some(re) => re,
             None => self.rect,
         };
-        Ok(Split::new(self.stdio_master, parent_com, rect, self.id))
+        Ok(Pane::new(self.stdio_master, parent_com, rect, self.id)?)
     }
 }

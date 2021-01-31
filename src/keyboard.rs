@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::process::Command;
 use std::mem;
-use crate::windows::*;
+use crate::container::*;
 
 #[repr(C)]
 pub struct InputEvent {
@@ -13,7 +13,7 @@ pub struct InputEvent {
     pub value: i32
 }
 
-pub fn read_keyboard(window: &mut Window) {
+pub fn read_keyboard(window: &mut Box<dyn Container>) {
     let mut device_file = File::open(get_keyboard_device_filename()).unwrap();
     let mut buff: [u8; mem::size_of::<InputEvent>()] = [0; mem::size_of::<InputEvent>()];
     let meta_code = 125;
@@ -41,9 +41,9 @@ pub fn read_keyboard(window: &mut Window) {
     }
 }
 
-fn handle_action(code: u16, window: &mut Window) {
+fn handle_action(code: u16, window: &mut Box<dyn Container>) {
     if code == 21 {
-        window.new_pane().unwrap();
+        //window.new_pane().unwrap();
     }
 }
 

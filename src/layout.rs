@@ -21,15 +21,33 @@ impl Layout {
             direction,
         }
     }
+
     pub fn add_child(&mut self) -> Rect
     {
+        self.nb_child += 1;
         match &self.direction {
-            Vertical => Rect::new(
+            Direction::Vertical => Rect::new(
                 self.base_rect.x,
                 self.base_rect.y,
                 self.base_rect.w,
                 self.base_rect.h / self.nb_child as u16),
-            Horizontal => Rect::new(
+            Direction::Horizontal => Rect::new(
+                self.base_rect.x,
+                self.base_rect.y,
+                self.base_rect.w / self.nb_child as u16,
+                self.base_rect.h)
+        }
+    }
+    pub fn del_child(&mut self) -> Rect
+    {
+        self.nb_child -= 1;
+        match &self.direction {
+            Direction::Vertical => Rect::new(
+                self.base_rect.x,
+                self.base_rect.y,
+                self.base_rect.w,
+                self.base_rect.h / self.nb_child as u16),
+            Direction::Horizontal => Rect::new(
                 self.base_rect.x,
                 self.base_rect.y,
                 self.base_rect.w / self.nb_child as u16,

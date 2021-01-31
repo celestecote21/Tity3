@@ -1,4 +1,4 @@
-use crate::pane::*;
+/*use crate::pane::*;
 use crate::windows::*;
 
 pub enum WindowNotif {
@@ -55,4 +55,4 @@ fn supress_pane(list_pane: &mut Vec<Pane>, id: PaneIdentifier)
     } else if index_removed != None && !list_pane.is_empty(){
         list_pane[index_removed.unwrap() - 1].take_input().unwrap();
     }*/
-}
+}*/

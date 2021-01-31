@@ -1,4 +1,4 @@
-use std::thread;
+/*use std::thread;
 use std::fs::File;
 use std::sync::mpsc::{self, Sender, Receiver};
 use crate::pane::*;
@@ -99,4 +99,4 @@ fn handle_panes(rx_receive_notif: Receiver<WindowNotif>)
             break
         }
     }
-}
+}*/

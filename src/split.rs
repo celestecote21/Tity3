@@ -21,10 +21,10 @@ impl Container for Split {
            parent_com: Sender<ChildToParent>,
            rect: Rect,
            id: String)
-        -> Split
+        -> Result<Split, ContainerError>
         {
             let useless = mpsc::channel();
-            Split {
+            Ok(Split {
                 next_id: 1,
                 stdio_master,
                 parent_com,
@@ -32,7 +32,7 @@ impl Container for Split {
                 id,
                 intern_com: useless.0,
                 direction: Direction::Horizontal,
-            }
+            })
     }
 
     /// the Split struct contains multiple other contenaire that can ben pane os other Split
@@ -74,7 +74,7 @@ impl Split {
            rect: Rect,
            id: String,
            direction: Direction)
-        -> Split
+        -> Result<Split, ContainerError>
     {
         let (intern_com_tx, intern_com_rx) = mpsc::channel();
         let rect_clone = rect.clone();
@@ -82,9 +82,9 @@ impl Split {
         thread::spawn( move || {
             split_thread(intern_com_rx, intern_com_tx, rect_clone, direction);
         });
-        let mut nw_split = Split::new(stdio_master, parent_com, rect, id);
+        let mut nw_split = Split::new(stdio_master, parent_com, rect, id)?;
         nw_split.intern_com = intern_com_tx_clone;
-        nw_split
+        Ok(nw_split)
     }
 }
 
@@ -151,17 +151,18 @@ fn add_child_split(list_child: &mut ContainerList,
     -> Result<(), ContainerError>
 {
     let rect_child = layout.add_child();
-    let new_cont = match transition_cont.1 {
-        ContainerType::Pane => transition_cont.0.to_pane(Some(parent_com), Some(rect_child.clone()))?,
-        ContainerType::SSplit => transition_cont.0.to_split(Some(parent_com),
+    let new_cont: Box<dyn Container> = match transition_cont.1 {
+        ContainerType::Pane => Box::new(transition_cont.0.to_pane(Some(parent_com), Some(rect_child.clone()))?),
+        ContainerType::SSplit => Box::new(transition_cont.0.to_split(Some(parent_com),
             Some(rect_child.clone()),
-            Direction::Horizontal)?,
-        ContainerType::VSplit => transition_cont.0.to_split(Some(parent_com),
+            Direction::Horizontal)?),
+        ContainerType::VSplit => Box::new(transition_cont.0.to_split(Some(parent_com),
             Some(rect_child.clone()),
-            Direction::Vertical)?,
+            Direction::Vertical)?),
     };
-    list_child.push(Box::new(new_cont));
+    list_child.push(new_cont);
     *focused = Some(list_child.len() - 1);
+    //TODO: handle with the layout
     Ok(())
 }
 

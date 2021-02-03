@@ -5,10 +5,13 @@ use std::io::{self, Write, Read};
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Sender;
 use std::fs::File;
+use std::any::Any;
 use crate::pty::*;
 use crate::buffer_file::*;
 use crate::size_utilis::*;
 use crate::container::*;
+use crate::split::*;
+use crate::layout::*;
 
 #[derive(PartialEq)]
 pub struct PaneIdentifier {
@@ -92,14 +95,56 @@ impl Container for Pane {
         Ok(())
     }
 
+    fn add_child(self, cont: MiniContainer, cont_type: ContainerType)
+        -> Result<Box<dyn Container>, ContainerError>
+    {
+        let mut nw_cont = Split::new_split(self.stdio_master,
+                                           self.parent_com,
+                                           self.rect,
+                                           self.id,
+                                           Direction::Horizontal)?;
+
+        Ok(Box::new(nw_cont))
+    }
+
     fn get_id(&self) -> String
     {
         self.id.clone()
     }
 
+    fn get_type(&self) -> ContainerType
+    {
+        ContainerType::Pane
+    }
+
     fn identifi(&self, id_test: &String) -> bool
     {
         self.id.eq(id_test)
+    }
+
+    /// a pane is always a leaf because it doesn't have any child
+    fn is_leaf(&self) -> bool
+    {
+        true
+    }
+
+    fn as_pane(self) -> Result<Pane, ContainerError>
+    {
+        Ok(self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn to_mini_container(&self)
+        -> MiniContainer
+    {
+        MiniContainer::new(
+            self.stdio_master.try_clone().unwrap(),
+            Some(self.parent_com.clone()),
+            self.rect.clone(),
+            self.id.clone())
     }
 }
 

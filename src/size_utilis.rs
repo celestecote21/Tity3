@@ -54,10 +54,22 @@ impl Rect {
             h,
         }
     }
+
+    pub fn from_tupple(tuple: (u16, u16)) -> Rect
+    {
+        Rect {
+            x: 0,
+            y: 0,
+            w: tuple.0,
+            h: tuple.1,
+        }
+    }
+
     pub fn get_size(&self) -> Size
     {
         Size {w: self.w, h: self.h}
     }
+
     pub fn get_origine(&self) -> Coordinate
     {
         Coordinate {x: self.x, y: self.y}

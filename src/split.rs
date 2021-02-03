@@ -1,10 +1,12 @@
 use std::thread;
+use std::any::Any;
 use std::io;
 use std::sync::mpsc::{self, Sender, Receiver};
 use std::fs::File;
 use crate::size_utilis::*;
 use crate::container::*;
 use crate::layout::*;
+use crate::pane::Pane;
 
 pub struct Split {
     id: String,
@@ -17,6 +19,7 @@ pub struct Split {
 }
 
 impl Container for Split {
+    /// don't use this directly, use new_split
     fn new(stdio_master: File,
            parent_com: Sender<ChildToParent>,
            rect: Rect,
@@ -39,7 +42,8 @@ impl Container for Split {
     /// So the draw fonction will call all the draw fonction of the child
     /// but because the handleling of the child is inside a thread
     /// it send the refresh commande
-    fn draw(&self) {
+    fn draw(&self)
+    {
         match self.intern_com.send(ChildToParent::Refresh) {
             Err(_) => self.parent_com.send(
                 ChildToParent::DestroyChild(self.get_id())).unwrap(),
@@ -47,7 +51,8 @@ impl Container for Split {
         }
     }
 
-    fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>{
+    fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>
+    {
         match self.intern_com.send(ChildToParent::GetInputData(data, size)) {
             Err(_) => self.parent_com.send(
                 ChildToParent::DestroyChild(self.get_id())).unwrap(),
@@ -56,13 +61,53 @@ impl Container for Split {
         Ok(())
     }
 
-    fn get_id(&self) -> String {
+    fn add_child(self, cont: MiniContainer, cont_type: ContainerType)
+        -> Result<Box<dyn Container>, ContainerError>
+    {
+        self.intern_com.send(ChildToParent::AddChild(cont, cont_type));
+        Ok(Box::new(self))
+    }
+
+    fn get_id(&self) -> String
+    {
         self.id.clone()
+    }
+
+    fn get_type(&self) -> ContainerType
+    {
+        match self.direction {
+            Direction::Horizontal => ContainerType::SSplit,
+            Direction::Vertical => ContainerType::VSplit
+        }
     }
 
     fn identifi(&self, id_test: &String) -> bool
     {
         self.id.eq(id_test)
+    }
+
+    fn is_leaf(&self) -> bool
+    {
+        false
+    }
+
+    fn as_pane(self) -> Result<Pane, ContainerError>
+    {
+        Err(ContainerError::BadTransform)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn to_mini_container(&self)
+        -> MiniContainer
+    {
+        MiniContainer::new(
+            self.stdio_master.try_clone().unwrap(),
+            Some(self.parent_com.clone()),
+            self.rect.clone(),
+            self.id.clone())
     }
 }
 
@@ -80,7 +125,25 @@ impl Split {
         let rect_clone = rect.clone();
         let intern_com_tx_clone = intern_com_tx.clone();
         thread::spawn( move || {
-            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction);
+            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, None);
+        });
+        let mut nw_split = Split::new(stdio_master, parent_com, rect, id)?;
+        nw_split.intern_com = intern_com_tx_clone;
+        Ok(nw_split)
+    }
+    pub fn new_split_with_child(stdio_master: File,
+           parent_com: Sender<ChildToParent>,
+           rect: Rect,
+           id: String,
+           direction: Direction,
+           child: ContainerMover)
+        -> Result<Split, ContainerError>
+    {
+        let (intern_com_tx, intern_com_rx) = mpsc::channel();
+        let rect_clone = rect.clone();
+        let intern_com_tx_clone = intern_com_tx.clone();
+        thread::spawn( move || {
+            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, Some(child));
         });
         let mut nw_split = Split::new(stdio_master, parent_com, rect, id)?;
         nw_split.intern_com = intern_com_tx_clone;
@@ -91,12 +154,23 @@ impl Split {
 fn split_thread(receiver: Receiver<ChildToParent>,
                 sender_for_child: Sender<ChildToParent>,
                 base_rect: Rect,
-                direction: Direction)
+                direction: Direction,
+                child: Option<ContainerMover>)
 {
-    let mut list_child: ContainerList = Vec::new();
     let mut layout = Layout::new(base_rect, direction);
     let mut focused = None;
+    let mut list_child: ContainerList = Vec::new();
 
+    if child.is_some() {
+        match child.unwrap() {
+            ContainerMover::SplitCont(c) => {
+                list_child.push(Box::new(c));
+            },
+            ContainerMover::PaneCont(c) => {
+                list_child.push(Box::new(c));
+            }
+        }
+    }
     loop {
         let com = match receiver.recv() {
             Ok(data) => data,
@@ -153,12 +227,17 @@ fn add_child_split(list_child: &mut ContainerList,
     let rect_child = layout.add_child();
     let new_cont: Box<dyn Container> = match transition_cont.1 {
         ContainerType::Pane => Box::new(transition_cont.0.to_pane(Some(parent_com), Some(rect_child.clone()))?),
-        ContainerType::SSplit => Box::new(transition_cont.0.to_split(Some(parent_com),
-            Some(rect_child.clone()),
-            Direction::Horizontal)?),
-        ContainerType::VSplit => Box::new(transition_cont.0.to_split(Some(parent_com),
-            Some(rect_child.clone()),
-            Direction::Vertical)?),
+        ContainerType::SSplit => {
+            Box::new(transition_cont.0.to_split(Some(parent_com),
+                Some(rect_child.clone()),
+                Direction::Horizontal, None)?)
+        },
+        ContainerType::VSplit => {
+            Box::new(transition_cont.0.to_split(Some(parent_com),
+                Some(rect_child.clone()),
+                Direction::Vertical, None)?)
+        },
+        _ => panic!("cannot create this type of child"),
     };
     list_child.push(new_cont);
     *focused = Some(list_child.len() - 1);
@@ -174,7 +253,7 @@ fn send_input_to_child(list_child: &mut ContainerList,
     if focused.is_none() {
         return;
     }
-    let mut focused_child = match list_child.get_mut(focused.unwrap()) {
+    let focused_child = match list_child.get_mut(focused.unwrap()) {
         Some(child) => Some(child),
         None => change_focused_child(list_child, None, focused)
     };

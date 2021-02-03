@@ -1,4 +1,5 @@
 use std::io;
+use std::any::Any;
 use std::sync::mpsc::Sender;
 use std::fs::File;
 use crate::size_utilis::*;
@@ -18,6 +19,12 @@ pub enum ContainerType {
     SSplit,
     VSplit,
     Pane,
+    Window,
+}
+
+pub enum ContainerMover {
+    SplitCont(Split),
+    PaneCont(Pane),
 }
 
 pub enum ChildToParent {
@@ -28,12 +35,23 @@ pub enum ChildToParent {
 }
 
 pub trait Container {
-    fn new(stdio_master: File, parent_com: Sender<ChildToParent>, rect: Rect, id: String) -> Result<Self, ContainerError>
+    fn new(stdio_master: File,
+           parent_com: Sender<ChildToParent>,
+           rect: Rect,
+           id: String)
+    -> Result<Self, ContainerError>
         where Self: Sized;
     fn draw(&self);
     fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>;
+    fn add_child(self, cont: MiniContainer, cont_type: ContainerType)
+        -> Result<Box<dyn Container>, ContainerError>;
     fn get_id(&self) -> String;
+    fn get_type(&self) -> ContainerType;
     fn identifi(&self, id_test: &String) -> bool;
+    fn is_leaf(&self) ->bool;
+    fn as_any(&self) -> &dyn Any;
+    fn as_pane(self) -> Result<Pane, ContainerError>;
+    fn to_mini_container(&self) -> MiniContainer;
 }
 
 pub struct MiniContainer {
@@ -44,7 +62,7 @@ pub struct MiniContainer {
 }
 
 impl MiniContainer {
-    fn new(stdio_master: File,
+    pub fn new(stdio_master: File,
            parent_com_op: Option<Sender<ChildToParent>>,
            rect: Rect,
            id: String) -> MiniContainer
@@ -60,7 +78,8 @@ impl MiniContainer {
     pub fn to_split(self,
                     parent_com_op: Option<Sender<ChildToParent>>,
                     rect_op: Option<Rect>,
-                    direction: Direction)
+                    direction: Direction,
+                    may_be_child: Option<ContainerMover>)
         -> Result<Split, ContainerError>
     {
         if parent_com_op.is_none() && self.parent_com_op.is_none() {
@@ -77,7 +96,20 @@ impl MiniContainer {
             Some(re) => re,
             None => self.rect,
         };
-        Ok(Split::new_split(self.stdio_master, parent_com, rect, self.id, direction)?)
+        if may_be_child.is_some() {
+            Ok(Split::new_split_with_child(self.stdio_master,
+                                           parent_com,
+                                           rect,
+                                           self.id,
+                                           direction,
+                                           may_be_child.unwrap())?)
+        } else {
+            Ok(Split::new_split(self.stdio_master,
+                                parent_com,
+                                rect,
+                                self.id,
+                                direction)?)
+        }
     }
 
     pub fn to_pane(self,

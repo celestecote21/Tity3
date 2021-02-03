@@ -1,29 +1,32 @@
 extern crate termion;
 
+use std::io::Write;
 use termion::get_tty;
 use termion::raw::IntoRawMode;
-use std::io::Write;
-mod pty;
-mod pane;
 mod buffer_file;
-mod windows;
-mod window_notif;
-mod keyboard;
-mod size_utilis;
 mod container;
-mod split;
+mod keyboard;
 mod layout;
+mod pane;
+mod pty;
+mod size_utilis;
+mod split;
 mod transformation;
-use windows::*;
+mod window_notif;
+mod windows;
 use size_utilis::Rect;
+use windows::*;
 
 fn main() {
-
     // Get the standard input stream.
     let mut stdio_master = get_tty().unwrap().into_raw_mode().unwrap();
     let base_rect = Rect::from_tupple(termion::terminal_size().unwrap());
     write!(stdio_master, "{}", termion::clear::All).unwrap();
-    start_wind(stdio_master.try_clone().unwrap(), base_rect, String::from("0"));
+    start_wind(
+        stdio_master.try_clone().unwrap(),
+        base_rect,
+        String::from("0"),
+    );
     //window.new_pane().unwrap();
     //window.wait();
     //keyboard::read_keyboard(&mut window);

@@ -1,16 +1,16 @@
+use crate::container::*;
 use std::fs::File;
 use std::io::Read;
-use std::process::Command;
 use std::mem;
-use crate::container::*;
+use std::process::Command;
 
 #[repr(C)]
 pub struct InputEvent {
-    tv_sec: isize, // from timeval struct
+    tv_sec: isize,  // from timeval struct
     tv_usec: isize, // from timeval struct
     pub type_: u16,
     pub code: u16,
-    pub value: i32
+    pub value: i32,
 }
 
 pub fn read_keyboard(window: &mut Container) {
@@ -34,7 +34,7 @@ pub fn read_keyboard(window: &mut Container) {
                 } else if meta_press == true {
                     handle_action(event.code, window);
                 }
-            } else if event.value == 0 && event.code == meta_code{
+            } else if event.value == 0 && event.code == meta_code {
                 meta_press = false
             }
         }
@@ -52,9 +52,13 @@ fn get_keyboard_device_filename() -> String {
     command_str.push_str("| grep -B1 120013");
     command_str.push_str("| grep -Eo event[0-9]+");
 
-    let res = Command::new("sh").arg("-c").arg(command_str).output().unwrap_or_else(|e| {
-        panic!("{}", e);
-    });
+    let res = Command::new("sh")
+        .arg("-c")
+        .arg(command_str)
+        .output()
+        .unwrap_or_else(|e| {
+            panic!("{}", e);
+        });
     let res_str = std::str::from_utf8(&res.stdout).unwrap();
 
     let mut filenames = Vec::new();

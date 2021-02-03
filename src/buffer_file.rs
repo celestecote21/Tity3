@@ -2,10 +2,10 @@
 
 extern crate byte_slice_cast;
 
-use std::io;
-use std::ptr;
-use std::ops;
 use crate::size_utilis::*;
+use std::io;
+use std::ops;
+use std::ptr;
 
 pub struct StdoutBufferLock {
     stdoutBuffer: StdoutBuffer,
@@ -22,15 +22,13 @@ impl StdoutBufferLock {
 impl ops::Deref for StdoutBufferLock {
     type Target = StdoutBuffer;
 
-    fn deref(&self) -> &StdoutBuffer
-    {
+    fn deref(&self) -> &StdoutBuffer {
         &self.stdoutBuffer
     }
 }
 
 impl ops::DerefMut for StdoutBufferLock {
-    fn deref_mut(&mut self) -> &mut StdoutBuffer
-    {
+    fn deref_mut(&mut self) -> &mut StdoutBuffer {
         &mut self.stdoutBuffer
     }
 }
@@ -49,7 +47,7 @@ pub struct StdoutBuffer {
 
 impl StdoutBuffer {
     pub fn new(pane_rect: Rect) -> Result<StdoutBuffer, io::Result<()>> {
-        Ok(StdoutBuffer{
+        Ok(StdoutBuffer {
             line_list: Vec::new(),
             line_end: false,
             pane_rect,
@@ -65,8 +63,8 @@ impl StdoutBuffer {
             string_building = self.line_list.pop();
         }
         let mut string_building = match string_building {
-            Some(str)   => str,
-            None        => String::new(),
+            Some(str) => str,
+            None => String::new(),
         };
         for c in buf.iter() {
             i += 1;
@@ -107,7 +105,6 @@ impl StdoutBuffer {
             let src_ptr = line.as_ptr();
 
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, line.len());
-
         }
         Ok(line.len())
     }
@@ -121,7 +118,13 @@ mod tests {
 
     #[test]
     fn test_write() {
-        let mut stout_buff = StdoutBuffer::new(Rect{x: 0, y: 0, w:  128, h: 64}).unwrap();
+        let mut stout_buff = StdoutBuffer::new(Rect {
+            x: 0,
+            y: 0,
+            w: 128,
+            h: 64,
+        })
+        .unwrap();
         let packet = "test test test test".as_bytes();
 
         assert_eq!(stout_buff.write(packet).unwrap(), packet.len())
@@ -129,7 +132,12 @@ mod tests {
 
     #[test]
     fn test_write_read() {
-        let rect = Rect{x: 0, y: 0, w:  128, h: 64};
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            w: 128,
+            h: 64,
+        };
         let mut cursor = rect.get_origine();
         let mut stout_buff = StdoutBuffer::new(rect).unwrap();
         let packet = "test test test test".as_bytes();
@@ -139,6 +147,9 @@ mod tests {
         assert_eq!(stout_buff.write(packet).unwrap(), packet.len());
         let read_size = stout_buff.read(&mut fun_res, &mut cursor).unwrap();
         assert_eq!(read_size, result.len());
-        assert_eq!(unsafe {str::from_utf8_unchecked(&fun_res[..read_size])}, result);
+        assert_eq!(
+            unsafe { str::from_utf8_unchecked(&fun_res[..read_size]) },
+            result
+        );
     }
 }

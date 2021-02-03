@@ -1,12 +1,12 @@
-use std::fs::File;
-use std::os::unix::io::{FromRawFd, RawFd};
-use std::ptr;
-use std::io::{self, Write, Read};
-use std::process::{Command, Stdio};
-use std::os::unix::process::CommandExt;
-use std::ops;
-use libc;
 use crate::size_utilis::Size;
+use libc;
+use std::fs::File;
+use std::io::{self, Read, Write};
+use std::ops;
+use std::os::unix::io::{FromRawFd, RawFd};
+use std::os::unix::process::CommandExt;
+use std::process::{Command, Stdio};
+use std::ptr;
 
 /*
  * handleling the pty (pseudoterminal) gestion here
@@ -27,8 +27,7 @@ pub enum PtyError {
 }
 
 impl Pty {
-    pub fn create(cmd: &str, size: &Size) -> Result<Pty, PtyError>
-    {
+    pub fn create(cmd: &str, size: &Size) -> Result<Pty, PtyError> {
         // open a pseudoterminal, and get the pair to "comunicate"
         let (master, slave) = openpty(size)?;
         // start a new process change it's std I/O and before spawning start a new session to take
@@ -42,7 +41,7 @@ impl Pty {
                 .spawn()
                 .map_err(|_| PtyError::PtySpawn)
                 .and_then(|_| {
-                    let pty = Pty{
+                    let pty = Pty {
                         fd_master: master,
                         file: File::from_raw_fd(master),
                     };
@@ -68,19 +67,16 @@ impl Pty {
 }
 
 impl Read for Pty {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize>
-    {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.file.read(buf)
     }
 }
 
 impl Write for Pty {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize>
-    {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.file.write(buf)
     }
-    fn flush(&mut self) ->io::Result<()>
-    {
+    fn flush(&mut self) -> io::Result<()> {
         self.file.flush()
     }
 }
@@ -88,23 +84,20 @@ impl Write for Pty {
 impl ops::Deref for Pty {
     type Target = File;
 
-    fn deref(&self) -> &File
-    {
+    fn deref(&self) -> &File {
         &self.file
     }
 }
 
 impl ops::DerefMut for Pty {
-    fn deref_mut(&mut self) -> &mut File
-    {
+    fn deref_mut(&mut self) -> &mut File {
         &mut self.file
     }
 }
 
-fn take_controlle() -> io::Result<()>
-{
-  unsafe {
-      //create a new sesion to have a new group of process
+fn take_controlle() -> io::Result<()> {
+    unsafe {
+        //create a new sesion to have a new group of process
         libc::setsid()
             .to_result()
             .map_err(|_| io::Error::new(io::ErrorKind::Other, ""))?;
@@ -116,8 +109,7 @@ fn take_controlle() -> io::Result<()>
     Ok(())
 }
 
-fn openpty(size: &Size) -> Result<(RawFd, RawFd), PtyError>
-{
+fn openpty(size: &Size) -> Result<(RawFd, RawFd), PtyError> {
     let mut masterfd = 0;
     let mut slavefd = 0;
 
@@ -127,11 +119,13 @@ fn openpty(size: &Size) -> Result<(RawFd, RawFd), PtyError>
             &mut slavefd,
             ptr::null_mut(),
             ptr::null(),
-            &size.to_c_size())
-            .to_result() {
-                Err(_) => return Err(PtyError::PtyOpen),
-                _ => ()
-            }
+            &size.to_c_size(),
+        )
+        .to_result()
+        {
+            Err(_) => return Err(PtyError::PtyOpen),
+            _ => (),
+        }
     }
     Ok((masterfd, slavefd))
 }
@@ -147,7 +141,7 @@ impl FromLibcResult for libc::c_int {
 
     fn to_result(self) -> Result<libc::c_int, ()> {
         match self {
-            -1  => Err(()),
+            -1 => Err(()),
             res => Ok(res),
         }
     }
@@ -158,15 +152,14 @@ impl FromLibcResult for *mut libc::passwd {
 
     fn to_result(self) -> Result<libc::passwd, ()> {
         if self == ptr::null_mut() {
-            return Err(())
+            return Err(());
         } else {
             unsafe { Ok(*self) }
         }
     }
 }
 
-pub fn pipe(input: &mut File, output: &mut File) -> io::Result<()>
-{
+pub fn pipe(input: &mut File, output: &mut File) -> io::Result<()> {
     let mut packet = [0; 4096];
 
     let count = input.read(&mut packet)?;

@@ -1,12 +1,10 @@
-
 pub struct Size {
     pub w: u16,
     pub h: u16,
 }
 
 impl Size {
-    pub fn to_c_size(&self) -> libc::winsize
-    {
+    pub fn to_c_size(&self) -> libc::winsize {
         libc::winsize {
             ws_row: self.h,
             ws_col: self.w,
@@ -23,15 +21,13 @@ pub struct Coordinate {
 }
 
 impl Coordinate {
-    pub fn to_size(&self) -> Size
-    {
-        Size{
+    pub fn to_size(&self) -> Size {
+        Size {
             w: self.x,
-            h: self.y
+            h: self.y,
         }
     }
-    pub fn goto_string(&self) -> String
-    {
+    pub fn goto_string(&self) -> String {
         termion::cursor::Goto(self.x + 1, self.y + 1).to_string()
     }
 }
@@ -45,18 +41,11 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn new(x: u16, y: u16, w: u16, h: u16) -> Rect
-    {
-        Rect {
-            x,
-            y,
-            w,
-            h,
-        }
+    pub fn new(x: u16, y: u16, w: u16, h: u16) -> Rect {
+        Rect { x, y, w, h }
     }
 
-    pub fn from_tupple(tuple: (u16, u16)) -> Rect
-    {
+    pub fn from_tupple(tuple: (u16, u16)) -> Rect {
         Rect {
             x: 0,
             y: 0,
@@ -65,14 +54,17 @@ impl Rect {
         }
     }
 
-    pub fn get_size(&self) -> Size
-    {
-        Size {w: self.w, h: self.h}
+    pub fn get_size(&self) -> Size {
+        Size {
+            w: self.w,
+            h: self.h,
+        }
     }
 
-    pub fn get_origine(&self) -> Coordinate
-    {
-        Coordinate {x: self.x, y: self.y}
+    pub fn get_origine(&self) -> Coordinate {
+        Coordinate {
+            x: self.x,
+            y: self.y,
+        }
     }
 }
-

@@ -3,9 +3,7 @@ use crate::pane::*;
 //use crate::split::*;
 //use crate::layout::*;
 
-pub fn window_child_transform(child: Container)
-    -> Result<Container, ContainerError>
-{
+pub fn window_child_transform(child: Container) -> Result<Container, ContainerError> {
     /*match child.get_type() {
         ContainerType::Pane => {
             let pane: &Pane = match child.as_any().downcast_ref::<Pane>() {

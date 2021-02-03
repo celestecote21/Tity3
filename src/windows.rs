@@ -27,8 +27,7 @@ pub fn start_wind(stdio_master: File, rect: Rect, id: String) -> Result<(), Cont
         match com {
             ChildToParent::Refresh => draw_container(&mut child),
             ChildToParent::AddChild(cont) => {
-                let nw_chil = window_child_transform(child)?;
-                child = nw_chil;
+                child = add_child_container(child, cont)?;
             }
             _ => (),
         }

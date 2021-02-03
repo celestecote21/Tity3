@@ -6,7 +6,6 @@ use std::fs::File;
 use std::sync::mpsc::Sender;
 
 pub type ContainerList = Vec<Container>;
-pub type ContainerTran = (MiniContainer, ContainerType);
 
 pub enum ContainerError {
     BadTransform,
@@ -51,9 +50,20 @@ pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) 
             sp.get_input(data, size);
         }
         Container::Pane(pa) => {
-            pa.get_input(data, size);
+            pa.get_input(data, size); // TODO: need error handling
         }
         _ => panic!("not ful container can't get input"),
+    }
+}
+
+pub fn add_child_container(
+    cont: Container,
+    nw_child: Container,
+) -> Result<Container, ContainerError> {
+    match cont {
+        Container::Split(sp) => sp.add_child(nw_child),
+        Container::Pane(pa) => pa.add_child(nw_child),
+        _ => panic!("not ful container can't be drawn"),
     }
 }
 

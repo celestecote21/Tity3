@@ -1,8 +1,6 @@
 use crate::container::*;
 use crate::layout::*;
-use crate::pane::Pane;
 use crate::size_utilis::*;
-use std::any::Any;
 use std::fs::File;
 use std::io;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -60,7 +58,7 @@ impl Split {
         }
     }
 
-    pub fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()> {
+    pub fn get_input(&mut self, data: [u8; 4096], size: usize) {
         match self
             .intern_com
             .send(ChildToParent::GetInputData(data, size))
@@ -71,7 +69,6 @@ impl Split {
                 .unwrap(),
             _ => (),
         }
-        Ok(())
     }
 
     pub fn add_child(self, cont: Container) -> Result<Container, ContainerError> {
@@ -97,24 +94,6 @@ impl Split {
     pub fn is_leaf(&self) -> bool {
         false
     }
-
-    pub fn as_pane(self) -> Result<Pane, ContainerError> {
-        Err(ContainerError::BadTransform)
-    }
-
-    pub fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    /*pub fn to_mini_container(&self)
-        -> MiniContainer
-    {
-        MiniContainer::new(
-            self.stdio_master.try_clone().unwrap(),
-            Some(self.parent_com.clone()),
-            self.rect.clone(),
-            self.id.clone())
-    }*/
 }
 
 fn split_thread(
@@ -138,7 +117,7 @@ fn split_thread(
         };
         match com {
             ChildToParent::Refresh => redraw_child(&mut list_child),
-            ChildToParent::DestroyChild(id) => destroy_child(&mut list_child, id),
+            ChildToParent::DestroyChild(id) => destroy_child(&mut list_child, id, &mut layout),
             ChildToParent::AddChild(cont) => {
                 match add_child_split(
                     &mut list_child,
@@ -165,18 +144,19 @@ fn redraw_child(list_child: &mut ContainerList) {
     });
 }
 
-fn destroy_child(list_child: &mut ContainerList, id: String) {
+fn destroy_child(list_child: &mut ContainerList, id: String, layout: &mut Layout) {
     let pos_child = list_child.iter().position(|child| match child {
         Container::Pane(pa) => pa.identifi(&id),
         Container::Split(sp) => sp.identifi(&id),
-        _ => todo!(),
+        _ => panic!("this can't have other type of child"),
     });
 
-    if pos_child.is_none() {
-        return;
+    if pos_child.is_some() {
+        list_child.remove(pos_child.unwrap());
+        layout.del_child();
+        //TODO: recalculate the size of childs and set it
+        redraw_child(list_child);
     }
-    list_child.remove(pos_child.unwrap());
-    redraw_child(list_child);
 }
 
 fn add_child_split(
@@ -191,22 +171,6 @@ fn add_child_split(
         Container::MiniCont(mini) => mini.complet(Some(parent_com), Some(rect_child.clone()))?,
         other => other,
     };
-    /*let new_cont: Container = match transition_cont.1 {
-        ContainerType::Pane => {
-            Container::Pane(transition_cont.0.to_pane(Some(parent_com), Some(rect_child.clone()))?)
-        },
-        ContainerType::SSplit => {
-            Container::Split(transition_cont.0.to_split(Some(parent_com),
-                Some(rect_child.clone()),
-                Direction::Horizontal, None)?)
-        },
-        ContainerType::VSplit => {
-            Container::Split(transition_cont.0.to_split(Some(parent_com),
-                Some(rect_child.clone()),
-                Direction::Vertical, None)?)
-        },
-        _ => panic!("cannot create this type of child"),
-    };*/
     list_child.push(nw_cont);
     *focused = Some(list_child.len() - 1);
     //TODO: handle with the layout

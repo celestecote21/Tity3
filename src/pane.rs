@@ -6,7 +6,6 @@ use crate::layout::*;
 use crate::pty::*;
 use crate::size_utilis::*;
 use crate::split::*;
-use std::any::Any;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::sync::mpsc::Sender;
@@ -87,7 +86,7 @@ impl Pane {
     }
 
     pub fn draw(&self) {
-        unimplemented!()
+        todo!()
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
@@ -128,24 +127,6 @@ impl Pane {
     pub fn is_leaf(&self) -> bool {
         true
     }
-
-    pub fn as_pane(self) -> Result<Pane, ContainerError> {
-        Ok(self)
-    }
-
-    pub fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    /*fn to_mini_container(&self)
-        -> MiniContainer
-    {
-        MiniContainer::new(
-            self.stdio_master.try_clone().unwrap(),
-            Some(self.parent_com.clone()),
-            self.rect.clone(),
-            self.id.clone())
-    }*/
 
     pub fn expand_w(&mut self) -> Result<(), PaneError> {
         //TODO: need to chenge in the bufferout too

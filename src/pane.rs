@@ -36,8 +36,8 @@ pub struct Pane {
     cursor: Coordinate,
 }
 
-impl Container for Pane {
-    fn new(stdio_master: File,
+impl Pane {
+    pub fn new(stdio_master: File,
            parent_com: Sender<ChildToParent>,
            rect: Rect,
            id: String)
@@ -81,13 +81,13 @@ impl Container for Pane {
         })
     }
 
-    fn draw(&self)
+    pub fn draw(&self)
     {
         unimplemented!()
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
-    fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>
+    pub fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>
     {
         let packet = &data[..size];
         self.pty_input.write_all(packet)?;
@@ -95,49 +95,51 @@ impl Container for Pane {
         Ok(())
     }
 
-    fn add_child(self, cont: MiniContainer, cont_type: ContainerType)
-        -> Result<Box<dyn Container>, ContainerError>
+    pub fn add_child(self, cont: Container)
+        -> Result<Container, ContainerError>
     {
-        let mut nw_cont = Split::new_split(self.stdio_master,
-                                           self.parent_com,
-                                           self.rect,
-                                           self.id,
-                                           Direction::Horizontal)?;
+        let nw_cont = Split::new(self.stdio_master.try_clone().unwrap(),
+                                           self.parent_com.clone(),
+                                           self.rect.clone(),
+                                           self.id.clone(),
+                                           Direction::Horizontal,
+                                           Some(Container::Pane(self)))?;
 
-        Ok(Box::new(nw_cont))
+        //Ok(Container::SplitCont(nw_cont));
+        todo!()
     }
 
-    fn get_id(&self) -> String
+    pub fn get_id(&self) -> String
     {
         self.id.clone()
     }
 
-    fn get_type(&self) -> ContainerType
+    pub fn get_type(&self) -> ContainerType
     {
         ContainerType::Pane
     }
 
-    fn identifi(&self, id_test: &String) -> bool
+    pub fn identifi(&self, id_test: &String) -> bool
     {
         self.id.eq(id_test)
     }
 
     /// a pane is always a leaf because it doesn't have any child
-    fn is_leaf(&self) -> bool
+    pub fn is_leaf(&self) -> bool
     {
         true
     }
 
-    fn as_pane(self) -> Result<Pane, ContainerError>
+    pub fn as_pane(self) -> Result<Pane, ContainerError>
     {
         Ok(self)
     }
 
-    fn as_any(&self) -> &dyn Any {
+    pub fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn to_mini_container(&self)
+    /*fn to_mini_container(&self)
         -> MiniContainer
     {
         MiniContainer::new(
@@ -145,18 +147,17 @@ impl Container for Pane {
             Some(self.parent_com.clone()),
             self.rect.clone(),
             self.id.clone())
-    }
-}
+    }*/
 
-impl Pane {
-
-    pub fn expand_w(&mut self) -> Result<(), PaneError> {
+    pub fn expand_w(&mut self) -> Result<(), PaneError>
+    {
         //TODO: need to chenge in the bufferout too
         self.rect.w+= 1;
         self.pty_input.resize(&self.rect.get_size()).map_err(|_| PaneError::PaneRezise)
     }
 
-    pub fn expand_h(&mut self) -> Result<(), PaneError> {
+    pub fn expand_h(&mut self) -> Result<(), PaneError>
+    {
         //TODO: need to chenge in the bufferout too
         self.rect.h += 1;
         self.pty_input.resize(&self.rect.get_size()).map_err(|_| PaneError::PaneRezise)

@@ -13,7 +13,7 @@ pub struct InputEvent {
     pub value: i32
 }
 
-pub fn read_keyboard(window: &mut Box<dyn Container>) {
+pub fn read_keyboard(window: &mut Container) {
     let mut device_file = File::open(get_keyboard_device_filename()).unwrap();
     let mut buff: [u8; mem::size_of::<InputEvent>()] = [0; mem::size_of::<InputEvent>()];
     let meta_code = 125;
@@ -41,7 +41,7 @@ pub fn read_keyboard(window: &mut Box<dyn Container>) {
     }
 }
 
-fn handle_action(code: u16, window: &mut Box<dyn Container>) {
+fn handle_action(code: u16, window: &mut Container) {
     if code == 21 {
         //window.new_pane().unwrap();
     }

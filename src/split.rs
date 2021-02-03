@@ -18,31 +18,39 @@ pub struct Split {
     direction: Direction,
 }
 
-impl Container for Split {
-    /// don't use this directly, use new_split
-    fn new(stdio_master: File,
+impl Split {
+    /// need to make only on new
+    pub fn new(stdio_master: File,
            parent_com: Sender<ChildToParent>,
            rect: Rect,
-           id: String)
+           id: String,
+           direction: Direction,
+           child: Option<Container>)
         -> Result<Split, ContainerError>
-        {
-            let useless = mpsc::channel();
-            Ok(Split {
-                next_id: 1,
-                stdio_master,
-                parent_com,
-                rect,
-                id,
-                intern_com: useless.0,
-                direction: Direction::Horizontal,
-            })
+    {
+        let (intern_com_tx, intern_com_rx) = mpsc::channel();
+        let rect_clone = rect.clone();
+        let intern_com_tx_clone = intern_com_tx.clone();
+        thread::spawn( move || {
+            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, child);
+        });
+        let mut nw_split = Split {
+            next_id: 1,
+            stdio_master,
+            parent_com,
+            rect,
+            id,
+            intern_com: intern_com_tx_clone,
+            direction: Direction::Horizontal,
+        };
+        Ok(nw_split)
     }
 
     /// the Split struct contains multiple other contenaire that can ben pane os other Split
     /// So the draw fonction will call all the draw fonction of the child
     /// but because the handleling of the child is inside a thread
     /// it send the refresh commande
-    fn draw(&self)
+    pub fn draw(&self)
     {
         match self.intern_com.send(ChildToParent::Refresh) {
             Err(_) => self.parent_com.send(
@@ -51,7 +59,7 @@ impl Container for Split {
         }
     }
 
-    fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>
+    pub fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()>
     {
         match self.intern_com.send(ChildToParent::GetInputData(data, size)) {
             Err(_) => self.parent_com.send(
@@ -61,19 +69,19 @@ impl Container for Split {
         Ok(())
     }
 
-    fn add_child(self, cont: MiniContainer, cont_type: ContainerType)
-        -> Result<Box<dyn Container>, ContainerError>
+    pub fn add_child(self, cont: Container)
+        -> Result<Container, ContainerError>
     {
-        self.intern_com.send(ChildToParent::AddChild(cont, cont_type));
-        Ok(Box::new(self))
+        self.intern_com.send(ChildToParent::AddChild(cont));
+        Ok(Container::Split(self))
     }
 
-    fn get_id(&self) -> String
+    pub fn get_id(&self) -> String
     {
         self.id.clone()
     }
 
-    fn get_type(&self) -> ContainerType
+    pub fn get_type(&self) -> ContainerType
     {
         match self.direction {
             Direction::Horizontal => ContainerType::SSplit,
@@ -81,26 +89,26 @@ impl Container for Split {
         }
     }
 
-    fn identifi(&self, id_test: &String) -> bool
+    pub fn identifi(&self, id_test: &String) -> bool
     {
         self.id.eq(id_test)
     }
 
-    fn is_leaf(&self) -> bool
+    pub fn is_leaf(&self) -> bool
     {
         false
     }
 
-    fn as_pane(self) -> Result<Pane, ContainerError>
+    pub fn as_pane(self) -> Result<Pane, ContainerError>
     {
         Err(ContainerError::BadTransform)
     }
 
-    fn as_any(&self) -> &dyn Any {
+    pub fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn to_mini_container(&self)
+    /*pub fn to_mini_container(&self)
         -> MiniContainer
     {
         MiniContainer::new(
@@ -108,68 +116,22 @@ impl Container for Split {
             Some(self.parent_com.clone()),
             self.rect.clone(),
             self.id.clone())
-    }
-}
+    }*/
 
-impl Split {
-    /// because when can't have an other arg in the Container new
-    /// we use this wrapper, it will create the thread and the Split
-    pub fn new_split(stdio_master: File,
-           parent_com: Sender<ChildToParent>,
-           rect: Rect,
-           id: String,
-           direction: Direction)
-        -> Result<Split, ContainerError>
-    {
-        let (intern_com_tx, intern_com_rx) = mpsc::channel();
-        let rect_clone = rect.clone();
-        let intern_com_tx_clone = intern_com_tx.clone();
-        thread::spawn( move || {
-            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, None);
-        });
-        let mut nw_split = Split::new(stdio_master, parent_com, rect, id)?;
-        nw_split.intern_com = intern_com_tx_clone;
-        Ok(nw_split)
-    }
-    pub fn new_split_with_child(stdio_master: File,
-           parent_com: Sender<ChildToParent>,
-           rect: Rect,
-           id: String,
-           direction: Direction,
-           child: ContainerMover)
-        -> Result<Split, ContainerError>
-    {
-        let (intern_com_tx, intern_com_rx) = mpsc::channel();
-        let rect_clone = rect.clone();
-        let intern_com_tx_clone = intern_com_tx.clone();
-        thread::spawn( move || {
-            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, Some(child));
-        });
-        let mut nw_split = Split::new(stdio_master, parent_com, rect, id)?;
-        nw_split.intern_com = intern_com_tx_clone;
-        Ok(nw_split)
-    }
 }
 
 fn split_thread(receiver: Receiver<ChildToParent>,
                 sender_for_child: Sender<ChildToParent>,
                 base_rect: Rect,
                 direction: Direction,
-                child: Option<ContainerMover>)
+                child: Option<Container>)
 {
     let mut layout = Layout::new(base_rect, direction);
     let mut focused = None;
     let mut list_child: ContainerList = Vec::new();
 
     if child.is_some() {
-        match child.unwrap() {
-            ContainerMover::SplitCont(c) => {
-                list_child.push(Box::new(c));
-            },
-            ContainerMover::PaneCont(c) => {
-                list_child.push(Box::new(c));
-            }
-        }
+        list_child.push(child.unwrap());
     }
     loop {
         let com = match receiver.recv() {
@@ -179,9 +141,9 @@ fn split_thread(receiver: Receiver<ChildToParent>,
         match com {
             ChildToParent::Refresh => redraw_child(&mut list_child),
             ChildToParent::DestroyChild(id) => destroy_child(&mut list_child, id),
-            ChildToParent::AddChild(cont, cont_type) => {
+            ChildToParent::AddChild(cont) => {
                 match add_child_split(&mut list_child,
-                                (cont, cont_type),
+                                cont,
                                 sender_for_child.clone(),
                                 &mut layout,
                                 &mut focused) {
@@ -201,14 +163,20 @@ fn split_thread(receiver: Receiver<ChildToParent>,
 
 fn redraw_child(list_child: &mut ContainerList)
 {
-    list_child.iter_mut().for_each(|pane| {
-        pane.draw();
+    list_child.iter_mut().for_each(|cont| {
+        draw_container(cont);
     });
 }
 
 fn destroy_child(list_child: &mut ContainerList, id: String)
 {
-    let pos_child = list_child.iter().position(|child| child.identifi(&id));
+    let pos_child = list_child.iter().position(|child| {
+        match child {
+            Container::Pane(pa) => pa.identifi(&id),
+            Container::Split(sp) => sp.identifi(&id),
+            _ => todo!()
+        }
+    });
 
     if pos_child.is_none() {
         return;
@@ -218,28 +186,34 @@ fn destroy_child(list_child: &mut ContainerList, id: String)
 }
 
 fn add_child_split(list_child: &mut ContainerList,
-                   transition_cont: ContainerTran,
+                   cont: Container,
                    parent_com: Sender<ChildToParent>,
                    layout: &mut Layout,
                    focused: &mut Option<usize>)
     -> Result<(), ContainerError>
 {
     let rect_child = layout.add_child();
-    let new_cont: Box<dyn Container> = match transition_cont.1 {
-        ContainerType::Pane => Box::new(transition_cont.0.to_pane(Some(parent_com), Some(rect_child.clone()))?),
+    let nw_cont = match cont {
+        Container::MiniCont(mini) => mini.complet(Some(parent_com), Some(rect_child.clone()))?,
+        other => other,
+    };
+    /*let new_cont: Container = match transition_cont.1 {
+        ContainerType::Pane => {
+            Container::Pane(transition_cont.0.to_pane(Some(parent_com), Some(rect_child.clone()))?)
+        },
         ContainerType::SSplit => {
-            Box::new(transition_cont.0.to_split(Some(parent_com),
+            Container::Split(transition_cont.0.to_split(Some(parent_com),
                 Some(rect_child.clone()),
                 Direction::Horizontal, None)?)
         },
         ContainerType::VSplit => {
-            Box::new(transition_cont.0.to_split(Some(parent_com),
+            Container::Split(transition_cont.0.to_split(Some(parent_com),
                 Some(rect_child.clone()),
                 Direction::Vertical, None)?)
         },
         _ => panic!("cannot create this type of child"),
-    };
-    list_child.push(new_cont);
+    };*/
+    list_child.push(nw_cont);
     *focused = Some(list_child.len() - 1);
     //TODO: handle with the layout
     Ok(())
@@ -260,13 +234,13 @@ fn send_input_to_child(list_child: &mut ContainerList,
     if focused_child.is_none() {
         return;
     }
-    focused_child.unwrap().get_input(input, size);
+    get_input_container(input, size, focused_child.unwrap());
 }
 
 fn change_focused_child<'a>(list_child: &'a mut ContainerList,
                         new_focus: Option<usize>,
                         focused: &mut Option<usize>)
-    -> Option<&'a mut Box<dyn Container>>
+    -> Option<&'a mut Container>
 {
     if new_focus.is_some() {
         *focused = Some(new_focus.unwrap());

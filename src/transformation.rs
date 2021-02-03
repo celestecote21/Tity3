@@ -1,18 +1,18 @@
 use crate::container::*;
 use crate::pane::*;
-use crate::split::*;
-use crate::layout::*;
+//use crate::split::*;
+//use crate::layout::*;
 
-pub fn window_child_transform(child: Box<dyn Container>)
-    -> Result<Box<dyn Container>, ContainerError>
+pub fn window_child_transform(child: Container)
+    -> Result<Container, ContainerError>
 {
-    match child.get_type() {
+    /*match child.get_type() {
         ContainerType::Pane => {
             let pane: &Pane = match child.as_any().downcast_ref::<Pane>() {
                 Some(b) => b,
                 None => return Err(ContainerError::BadTransform),
             };
-            let nw_split = child.to_mini_container();
+            //let nw_split = child.to_mini_container();
             /*let nw_split = nw_split.to_split(None,
                                              None,
                                              Direction::Horizontal,
@@ -21,5 +21,6 @@ pub fn window_child_transform(child: Box<dyn Container>)
             todo!()
         }
         _ => return Err(ContainerError::BadTransform),
-    }
+    }*/
+    todo!()
 }

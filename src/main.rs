@@ -1,6 +1,6 @@
 extern crate termion;
 
-use std::io::Write;
+use std::io::{Read, Write};
 use termion::get_tty;
 use termion::raw::IntoRawMode;
 mod buffer_file;
@@ -11,9 +11,9 @@ mod pane;
 mod pty;
 mod size_utilis;
 mod split;
-mod transformation;
 mod window_notif;
 mod windows;
+use container::*;
 use size_utilis::Rect;
 use windows::*;
 
@@ -22,11 +22,26 @@ fn main() {
     let mut stdio_master = get_tty().unwrap().into_raw_mode().unwrap();
     let base_rect = Rect::from_tupple(termion::terminal_size().unwrap());
     write!(stdio_master, "{}", termion::clear::All).unwrap();
-    start_wind(
+    let (wind_com, wind_thread) = match start_wind(
         stdio_master.try_clone().unwrap(),
         base_rect,
         String::from("0"),
-    );
+    ) {
+        Ok(a) => a,
+        _ => panic!("can't open the windows"),
+    };
+    let mut stdio_clone = stdio_master.try_clone().unwrap();
+    loop {
+        let mut packet = [0; 4096];
+        let count = match stdio_clone.read(&mut packet) {
+            Ok(c) => c,
+            Err(_) => break,
+        };
+        match wind_com.send(ChildToParent::GetInputData(packet, count)) {
+            Ok(_) => (),
+            Err(_) => break,
+        }
+    }
     //window.new_pane().unwrap();
     //window.wait();
     //keyboard::read_keyboard(&mut window);

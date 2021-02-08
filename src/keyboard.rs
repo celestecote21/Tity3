@@ -3,6 +3,18 @@ use std::fs::File;
 use std::io::Read;
 use std::mem;
 use std::process::Command;
+use std::sync::mpsc::Sender;
+
+pub fn parse_input(
+    data: [u8; 4096],
+    size: usize,
+    command_sender: &Sender<ChildToParent>,
+) -> ([u8; 4096], usize) {
+    for i in 0..size {
+        println!("{}, ", data[i]);
+    }
+    (data, size)
+}
 
 #[repr(C)]
 pub struct InputEvent {

@@ -32,7 +32,6 @@ pub struct Pane {
     parent_com: Sender<ChildToParent>,
     rect: Rect,
     buffer: Arc<RwLock<StdoutBufferLock>>,
-    cursor: Coordinate,
 }
 
 impl Pane {
@@ -52,10 +51,6 @@ impl Pane {
         let out_buffer_clone = out_buffer.clone();
         let parent_com_clone = parent_com.clone();
         let cpy_id = id.clone();
-        let cursor = Coordinate {
-            x: rect.x,
-            y: rect.y,
-        };
         thread::spawn(move || {
             loop {
                 let mut packet = [0; 4096];
@@ -81,12 +76,13 @@ impl Pane {
             parent_com,
             rect,
             buffer: out_buffer_clone,
-            cursor,
         })
     }
 
-    pub fn draw(&self) {
-        todo!()
+    pub fn draw(&mut self) {
+        //write!(self.stdio_master, "{}hello", termion::clear::All).unwrap();
+        write!(self.stdio_master, "hello").unwrap();
+        //todo!()
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
@@ -106,26 +102,15 @@ impl Pane {
             Direction::Horizontal,
             Some(Container::Pane(self)),
         )?;
-
-        //Ok(Container::SplitCont(nw_cont));
-        todo!()
+        Ok(nw_cont.add_child(cont)?)
     }
 
     pub fn get_id(&self) -> String {
         self.id.clone()
     }
 
-    pub fn get_type(&self) -> ContainerType {
-        ContainerType::Pane
-    }
-
     pub fn identifi(&self, id_test: &String) -> bool {
         self.id.eq(id_test)
-    }
-
-    /// a pane is always a leaf because it doesn't have any child
-    pub fn is_leaf(&self) -> bool {
-        true
     }
 
     pub fn expand_w(&mut self) -> Result<(), PaneError> {

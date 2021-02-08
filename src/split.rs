@@ -2,9 +2,10 @@ use crate::container::*;
 use crate::layout::*;
 use crate::size_utilis::*;
 use std::fs::File;
-use std::io;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
+
+//TODO: make a new struct just for the interne in the thread because functions take to much args
 
 pub struct Split {
     id: String,
@@ -72,7 +73,13 @@ impl Split {
     }
 
     pub fn add_child(self, cont: Container) -> Result<Container, ContainerError> {
-        self.intern_com.send(ChildToParent::AddChild(cont));
+        match self.intern_com.send(ChildToParent::AddChild(cont)) {
+            Err(_) => self
+                .parent_com
+                .send(ChildToParent::DestroyChild(self.get_id()))
+                .unwrap(),
+            _ => (),
+        }
         Ok(Container::Split(self))
     }
 
@@ -80,19 +87,8 @@ impl Split {
         self.id.clone()
     }
 
-    pub fn get_type(&self) -> ContainerType {
-        match self.direction {
-            Direction::Horizontal => ContainerType::SSplit,
-            Direction::Vertical => ContainerType::VSplit,
-        }
-    }
-
     pub fn identifi(&self, id_test: &String) -> bool {
         self.id.eq(id_test)
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        false
     }
 }
 
@@ -171,6 +167,22 @@ fn add_child_split(
         Container::MiniCont(mini) => mini.complet(Some(parent_com), Some(rect_child.clone()))?,
         other => other,
     };
+    if focused.is_some() {
+        let id = get_id_container(list_child.get(focused.unwrap()).unwrap());
+        let pos_child = list_child.iter().position(|child| match child {
+            Container::Pane(pa) => pa.identifi(&id),
+            Container::Split(sp) => sp.identifi(&id),
+            _ => panic!("this can't have other type of child"),
+        });
+        if pos_child.is_some() {
+            let focused_child = list_child.remove(focused.unwrap());
+            list_child.insert(
+                pos_child.unwrap(),
+                add_child_container(focused_child, nw_cont)?,
+            );
+            return Ok(());
+        }
+    }
     list_child.push(nw_cont);
     *focused = Some(list_child.len() - 1);
     //TODO: handle with the layout
@@ -188,7 +200,7 @@ fn send_input_to_child(
     }
     let focused_child = match list_child.get_mut(focused.unwrap()) {
         Some(child) => Some(child),
-        None => change_focused_child(list_child, None, focused),
+        None => get_focused_child(list_child, None, focused),
     };
     if focused_child.is_none() {
         return;
@@ -196,7 +208,7 @@ fn send_input_to_child(
     get_input_container(input, size, focused_child.unwrap());
 }
 
-fn change_focused_child<'a>(
+fn get_focused_child<'a>(
     list_child: &'a mut ContainerList,
     new_focus: Option<usize>,
     focused: &mut Option<usize>,
@@ -209,9 +221,13 @@ fn change_focused_child<'a>(
         *focused = None;
         return None;
     }
+    if focused.is_none() {
+        return None;
+    }
     let mut tmp = focused.unwrap();
     while list_child.get(tmp).is_none() {
         tmp -= 1;
     }
+    *focused = Some(tmp);
     list_child.get_mut(tmp)
 }

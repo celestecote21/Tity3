@@ -44,15 +44,23 @@ pub fn draw_container(cont: &mut Container) {
     }
 }
 
+pub fn get_id_container(cont: &Container) -> String {
+    match cont {
+        Container::Split(sp) => sp.get_id(),
+        Container::Pane(pa) => pa.get_id(),
+        _ => panic!("can't get this id"),
+    }
+}
+
 pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) {
     match cont {
         Container::Split(sp) => {
             sp.get_input(data, size);
         }
         Container::Pane(pa) => {
-            pa.get_input(data, size); // TODO: need error handling
+            pa.get_input(data, size).unwrap(); // TODO: need error handling
         }
-        _ => panic!("not ful container can't get input"),
+        _ => panic!("not full container can't get input"),
     }
 }
 
@@ -63,7 +71,7 @@ pub fn add_child_container(
     match cont {
         Container::Split(sp) => sp.add_child(nw_child),
         Container::Pane(pa) => pa.add_child(nw_child),
-        _ => panic!("not ful container can't be drawn"),
+        _ => panic!("this type of container have child"),
     }
 }
 
@@ -126,7 +134,7 @@ impl MiniContainer {
                 Direction::Horizontal,
                 None,
             )?)),
-            ContainerType::SSplit => Ok(Container::Split(Split::new(
+            ContainerType::VSplit => Ok(Container::Split(Split::new(
                 self.stdio_master,
                 parent_com,
                 rect,

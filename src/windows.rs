@@ -15,18 +15,24 @@ pub fn start_wind(
     let mut id_child = id.clone();
     id_child.push_str("1");
     let (parent_com_tx, parent_com_rx) = mpsc::channel();
-    let com_clone = parent_com_tx.clone();
     let com_clone_tx = parent_com_tx.clone();
     let stdio_clone = match stdio_master.try_clone() {
         Ok(f) => f,
-        Err(_) => return Err(ContainerError::BadTransform),
+        Err(_) => return Err(ContainerError::CreationError),
     };
-    let mut child = Container::Pane(Pane::new(
+    let base = MiniContainer::new(
         stdio_clone,
-        parent_com_tx,
+        Some(parent_com_tx.clone()),
         rect.clone(),
         id_child,
-    )?);
+        ContainerType::Pane,
+    );
+    let mut child = base
+        .duplic(ContainerType::Pane)
+        .unwrap()
+        .complet(None, None)
+        .unwrap();
+
     let thread_hand = thread::spawn(move || {
         loop {
             let com = match parent_com_rx.recv() {
@@ -42,12 +48,13 @@ pub fn start_wind(
                     }
                 }
                 ChildToParent::GetInputData(data, size) => {
-                    let (data, size) = parse_input(data, size, &com_clone_tx);
+                    let (data, size) = parse_input(data, size, &com_clone_tx, &base);
+                    //get_input_container(data, size, &mut child);
                 }
                 _ => (),
             }
         }
         drop(parent_com_rx);
     });
-    Ok((com_clone, thread_hand))
+    Ok((parent_com_tx, thread_hand))
 }

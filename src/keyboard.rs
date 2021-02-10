@@ -9,11 +9,33 @@ pub fn parse_input(
     data: [u8; 4096],
     size: usize,
     command_sender: &Sender<ChildToParent>,
+    base: &MiniContainer,
 ) -> ([u8; 4096], usize) {
-    for i in 0..size {
+    let mut i = 0;
+    loop {
+        if i >= size {
+            break;
+        }
+        if data[i] == 27 && parse_command(data[i + 1], command_sender, base) {}
         println!("{}, ", data[i]);
+        i += 1;
     }
     (data, size)
+}
+
+pub fn parse_command(
+    keycode: u8,
+    command_sender: &Sender<ChildToParent>,
+    base: &MiniContainer,
+) -> bool {
+    if keycode == 13 {
+        let minicont = base.duplic(ContainerType::Pane).unwrap();
+        command_sender
+            .send(ChildToParent::AddChild(Container::MiniCont(minicont)))
+            .unwrap();
+        return true;
+    }
+    return false;
 }
 
 #[repr(C)]

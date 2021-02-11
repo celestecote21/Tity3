@@ -1,10 +1,41 @@
 use crate::container::*;
+use crate::enum_key::*;
 use crate::keyboard::parse_input;
 use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::thread::{self, JoinHandle};
+
+pub struct WindowsConf {
+    keymap: Vec<KeyAction>,
+    wind_sender: Sender<ChildToParent>,
+    base_cont: MiniContainer,
+}
+
+impl WindowsConf {
+    pub fn new(
+        keymap: Vec<KeyAction>,
+        wind_sender: Sender<ChildToParent>,
+        base_cont: MiniContainer,
+    ) -> WindowsConf {
+        WindowsConf {
+            keymap,
+            wind_sender,
+            base_cont,
+        }
+    }
+
+    pub fn get_keymap<'a>(&'a self) -> &'a Vec<KeyAction> {
+        &self.keymap
+    }
+    pub fn get_sender<'a>(&'a self) -> &'a Sender<ChildToParent> {
+        &self.wind_sender
+    }
+    pub fn get_base<'a>(&'a self) -> &'a MiniContainer {
+        &self.base_cont
+    }
+}
 
 pub fn start_wind(
     stdio_master: File,
@@ -31,6 +62,8 @@ pub fn start_wind(
         .unwrap()
         .complet(None, None)
         .unwrap();
+    let keymap = Vec::new();
+    let config = WindowsConf::new(keymap, com_clone_tx, base);
 
     let thread_hand = thread::spawn(move || {
         loop {
@@ -47,7 +80,7 @@ pub fn start_wind(
                     }
                 }
                 ChildToParent::GetInputData(data, size) => {
-                    let (data, size) = parse_input(data, size, &com_clone_tx, &base);
+                    let (data, size) = parse_input(data, size, &config);
                     get_input_container(data, size, &mut child);
                 }
                 _ => (),

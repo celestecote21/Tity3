@@ -1,7 +1,6 @@
 use crate::container::*;
-use std::sync::mpsc::Sender;
+use crate::windows::WindowsConf;
 use std::cmp::PartialEq;
-
 
 pub enum Action {
     AddPane,
@@ -9,25 +8,21 @@ pub enum Action {
 }
 
 pub struct KeyAction {
-    keycode: u16,
+    pub keycode: u8,
     action: Action,
 }
 
 impl KeyAction {
-    pub fn take_action(&self,
-        command_sender: &Sender<ChildToParent>,
-        base: &MiniContainer,
-    ) {
+    pub fn take_action(&self, config: &WindowsConf) {
         match self.action {
             Action::AddPane => {
-                let minicont = base.duplic(ContainerType::Pane).unwrap();
-                command_sender
+                let minicont = config.get_base().duplic(ContainerType::Pane).unwrap();
+                config
+                    .get_sender()
                     .send(ChildToParent::AddChild(Container::MiniCont(minicont)))
                     .unwrap();
             }
-            Action::DeletePane => {
-
-            }
+            Action::DeletePane => {}
         }
     }
 }

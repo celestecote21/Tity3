@@ -1,6 +1,5 @@
 use crate::container::*;
 use crate::keyboard::parse_input;
-use crate::pane::*;
 use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc;
@@ -49,7 +48,7 @@ pub fn start_wind(
                 }
                 ChildToParent::GetInputData(data, size) => {
                     let (data, size) = parse_input(data, size, &com_clone_tx, &base);
-                    //get_input_container(data, size, &mut child);
+                    get_input_container(data, size, &mut child);
                 }
                 _ => (),
             }

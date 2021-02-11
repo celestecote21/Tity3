@@ -1,4 +1,5 @@
 use crate::container::*;
+use crate::enum_key::*;
 use std::fs::File;
 use std::io::Read;
 use std::mem;
@@ -28,14 +29,12 @@ pub fn parse_command(
     command_sender: &Sender<ChildToParent>,
     base: &MiniContainer,
 ) -> bool {
-    if keycode == 13 {
-        let minicont = base.duplic(ContainerType::Pane).unwrap();
-        command_sender
-            .send(ChildToParent::AddChild(Container::MiniCont(minicont)))
-            .unwrap();
-        return true;
-    }
-    return false;
+    let pos = match list_keymap.iter().position(|map| map.keycode == keycode) {
+        Some(p) => p,
+        None => return false,
+    };
+    list_keymap[pos].take_action(command_sender, base);
+    true
 }
 
 #[repr(C)]

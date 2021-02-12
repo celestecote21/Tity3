@@ -7,8 +7,10 @@ use std::sync::mpsc::Sender;
 
 pub type ContainerList = Vec<Container>;
 
+#[derive(Debug)]
 pub enum ContainerError {
     BadTransform,
+    CreationError,
     BadPane(PaneError),
 }
 
@@ -98,6 +100,20 @@ impl MiniContainer {
             id,
             to_container,
         }
+    }
+
+    pub fn duplic(&self, to_container: ContainerType) -> Result<MiniContainer, ContainerError> {
+        let stdio_clone = match self.stdio_master.try_clone() {
+            Ok(f) => f,
+            Err(_) => return Err(ContainerError::BadTransform),
+        };
+        Ok(MiniContainer {
+            stdio_master: stdio_clone,
+            parent_com_op: self.parent_com_op.clone(),
+            rect: self.rect.clone(),
+            id: self.id.clone(),
+            to_container,
+        })
     }
 
     pub fn complet(

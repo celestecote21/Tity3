@@ -9,7 +9,7 @@ pub enum Action {
 
 pub struct KeyAction {
     pub keycode: u8,
-    action: Action,
+    pub action: Action,
 }
 
 impl KeyAction {

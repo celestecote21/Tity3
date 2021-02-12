@@ -62,8 +62,7 @@ pub fn start_wind(
         .unwrap()
         .complet(None, None)
         .unwrap();
-    let keymap = Vec::new();
-    let config = WindowsConf::new(keymap, com_clone_tx, base);
+    let config = WindowsConf::new(create_keymap(), com_clone_tx, base);
 
     let thread_hand = thread::spawn(move || {
         loop {
@@ -89,4 +88,9 @@ pub fn start_wind(
         drop(parent_com_rx);
     });
     Ok((parent_com_tx, thread_hand))
+}
+
+fn create_keymap() -> Vec<KeyAction>
+{
+    vec![KeyAction{keycode: 13, action: Action::AddPane}, KeyAction{keycode: 141, action: Action::DeletePane}]
 }

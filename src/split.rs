@@ -33,7 +33,7 @@ impl Split {
         thread::spawn(move || {
             split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, child);
         });
-        let mut nw_split = Split {
+        let nw_split = Split {
             next_id: 1,
             stdio_master,
             parent_com,
@@ -90,6 +90,10 @@ impl Split {
     pub fn identifi(&self, id_test: &String) -> bool {
         self.id.eq(id_test)
     }
+
+    pub fn change_rect(&mut self, rect: &Rect) {
+        todo!()
+    }
 }
 
 fn split_thread(
@@ -105,6 +109,7 @@ fn split_thread(
 
     if child.is_some() {
         list_child.push(child.unwrap());
+        layout.add_child();
     }
     loop {
         let com = match receiver.recv() {
@@ -162,7 +167,7 @@ fn add_child_split(
     layout: &mut Layout,
     focused: &mut Option<usize>,
 ) -> Result<(), ContainerError> {
-    let rect_child = layout.add_child();
+    let mut rect_child = layout.add_child();
     let nw_cont = match cont {
         Container::MiniCont(mini) => mini.complet(Some(parent_com), Some(rect_child.clone()))?,
         other => other,
@@ -186,6 +191,14 @@ fn add_child_split(
     list_child.push(nw_cont);
     *focused = Some(list_child.len() - 1);
     //TODO: handle with the layout
+    let direction = layout.get_direction();
+    for ch in list_child.iter_mut() {
+        change_rect_container(&rect_child, ch);
+        match direction {
+            Direction::Horizontal =>  rect_child.x += rect_child.w,
+            Direction::Vertical =>  rect_child.y += rect_child.h,
+        }
+    }
     Ok(())
 }
 

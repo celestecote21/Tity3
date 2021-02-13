@@ -66,6 +66,18 @@ pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) 
     }
 }
 
+pub fn change_rect_container(rect: &Rect, cont: &mut Container) {
+    match cont {
+        Container::Split(sp) => {
+            sp.change_rect(rect);
+        }
+        Container::Pane(pa) => {
+            pa.change_rect(rect).unwrap(); // TODO: need error handling
+        }
+        _ => panic!("not full container can't get input"),
+    }
+}
+
 pub fn add_child_container(
     cont: Container,
     nw_child: Container,

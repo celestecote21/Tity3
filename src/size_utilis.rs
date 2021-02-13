@@ -32,7 +32,7 @@ impl Coordinate {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Rect {
     pub x: u16,
     pub y: u16,
@@ -66,5 +66,12 @@ impl Rect {
             x: self.x,
             y: self.y,
         }
+    }
+
+    pub fn copy(&mut self, rect: &Rect) {
+        self.x = rect.x;
+        self.y = rect.y;
+        self.w = rect.w;
+        self.h = rect.h;
     }
 }

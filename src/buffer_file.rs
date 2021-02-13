@@ -81,6 +81,12 @@ impl StdoutBuffer {
         Ok(i)
     }
 
+    pub fn change_rect(&mut self, rect: &Rect) {
+        self.pane_rect.copy(rect);
+        //TODO: Rezise string inside the Vec
+    }
+
+    // TODO: not that good need a rewrite
     pub fn read(&self, buf: &mut [u8], cursor: &mut Coordinate) -> io::Result<usize> {
         if cursor.y > self.pane_rect.h || cursor.y > self.line_list.len() as u16 {
             return Ok(0);
@@ -89,16 +95,16 @@ impl StdoutBuffer {
             Some(line_str) => line_str,
             None => "",
         };
-        cursor.y += 1;
-        if buff_slice.len() <= 0 {
-            return Ok(0);
-        }
-        let mut cursor_tmp = cursor.clone();
-        /*if self.line_end == false {
+        /*let mut cursor_tmp = cursor.clone();
+        if self.line_end == false {
             cursor_tmp.x += buff_slice.len() as u16;
             cursor.x += buff_slice.len() as u16;
         }*/
         let mut line = cursor.goto_string();
+        cursor.y += 1;
+        if buff_slice.len() <= 0 {
+            return Ok(0);
+        }
         line.push_str(buff_slice);
         unsafe {
             let dst_ptr = buf.as_mut_ptr();

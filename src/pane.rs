@@ -11,6 +11,7 @@ use std::io::{self, Read, Write};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::thread;
+use std::str;
 
 #[derive(PartialEq)]
 pub struct PaneIdentifier {
@@ -32,6 +33,8 @@ pub struct Pane {
     parent_com: Sender<ChildToParent>,
     rect: Rect,
     buffer: Arc<RwLock<StdoutBufferLock>>,
+    cursor: Coordinate,
+    y: u16,
 }
 
 impl Pane {
@@ -76,13 +79,23 @@ impl Pane {
             parent_com,
             rect,
             buffer: out_buffer_clone,
+            cursor: Coordinate{x: 0, y: 0},
+            y: 0,
         })
     }
 
     pub fn draw(&mut self) {
-        //write!(self.stdio_master, "{}hello", termion::clear::All).unwrap();
-        write!(self.stdio_master, "hello").unwrap();
-        //todo!()
+        let mut out = &self.stdio_master;
+        let buffer_read = self.buffer.read().unwrap();
+        let mut buffer = [0 as u8; 4069];
+        self.cursor.x = self.rect.x;
+        self.cursor.y = self.y;
+        let mut read_size = (buffer_read).read(&mut buffer[..], &mut self.cursor).unwrap();
+        while read_size != 0 {
+            write!(out, "{}", str::from_utf8(&buffer[..read_size]).unwrap()).unwrap();
+            read_size = buffer_read.read(&mut buffer[..], &mut self.cursor).unwrap();
+        }
+        self.cursor.y = 0;
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
@@ -113,17 +126,11 @@ impl Pane {
         self.id.eq(id_test)
     }
 
-    pub fn expand_w(&mut self) -> Result<(), PaneError> {
-        //TODO: need to chenge in the bufferout too
-        self.rect.w += 1;
-        self.pty_input
-            .resize(&self.rect.get_size())
-            .map_err(|_| PaneError::PaneRezise)
-    }
-
-    pub fn expand_h(&mut self) -> Result<(), PaneError> {
-        //TODO: need to chenge in the bufferout too
-        self.rect.h += 1;
+    pub fn change_rect(&mut self, rect: &Rect) -> Result<(), PaneError> {
+        // TODO: need to tell to the bufferfile
+        self.buffer.write().unwrap().change_rect(rect);
+        self.y = 0;
+        self.rect.copy(rect);
         self.pty_input
             .resize(&self.rect.get_size())
             .map_err(|_| PaneError::PaneRezise)

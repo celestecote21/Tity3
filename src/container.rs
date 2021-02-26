@@ -14,11 +14,13 @@ pub enum ContainerError {
     BadPane(PaneError),
 }
 
+#[derive(PartialEq)]
 pub enum ContainerType {
     SSplit,
     VSplit,
     Pane,
     Window,
+    Other,
 }
 
 pub enum ChildToParent {
@@ -63,6 +65,14 @@ pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) 
             pa.get_input(data, size).unwrap(); // TODO: need error handling
         }
         _ => panic!("not full container can't get input"),
+    }
+}
+
+pub fn get_container_type(cont: &Container) -> ContainerType{
+    match cont {
+        Container::Split(sp) => ContainerType::SSplit,
+        Container::Pane(pa) => ContainerType::Pane,
+        _ => ContainerType::Other,
     }
 }
 

@@ -30,6 +30,11 @@ impl Coordinate {
     pub fn goto_string(&self) -> String {
         termion::cursor::Goto(self.x + 1, self.y + 1).to_string()
     }
+
+    pub fn copy(&mut self, other: &Coordinate) {
+        self.x = other.x;
+        self.y = other.y;
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]

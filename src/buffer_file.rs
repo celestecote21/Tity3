@@ -100,6 +100,7 @@ impl StdoutBuffer {
             cursor_tmp.x += buff_slice.len() as u16;
             cursor.x += buff_slice.len() as u16;
         }*/
+        // TODO: check for line > 4096
         let mut line = cursor.goto_string();
         cursor.y += 1;
         if buff_slice.len() <= 0 {

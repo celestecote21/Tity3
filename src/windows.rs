@@ -90,7 +90,15 @@ pub fn start_wind(
     Ok((parent_com_tx, thread_hand))
 }
 
-fn create_keymap() -> Vec<KeyAction>
-{
-    vec![KeyAction{keycode: 13, action: Action::AddPane}, KeyAction{keycode: 141, action: Action::DeletePane}]
+fn create_keymap() -> Vec<KeyAction> {
+    vec![
+        KeyAction {
+            keycode: 13,
+            action: Action::AddPane,
+        },
+        KeyAction {
+            keycode: 141,
+            action: Action::DeletePane,
+        },
+    ]
 }

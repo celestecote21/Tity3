@@ -8,10 +8,10 @@ use crate::size_utilis::*;
 use crate::split::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
+use std::str;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::str;
 
 #[derive(PartialEq)]
 pub struct PaneIdentifier {
@@ -79,7 +79,7 @@ impl Pane {
             parent_com,
             rect,
             buffer: out_buffer_clone,
-            cursor: Coordinate{x: 0, y: 0},
+            cursor: Coordinate { x: 0, y: 0 },
             y: 0,
         })
     }
@@ -88,14 +88,14 @@ impl Pane {
         let mut out = &self.stdio_master;
         let buffer_read = self.buffer.read().unwrap();
         let mut buffer = [0 as u8; 4069];
-        self.cursor.x = self.rect.x;
-        self.cursor.y = self.y;
-        let mut read_size = (buffer_read).read(&mut buffer[..], &mut self.cursor).unwrap();
+        self.cursor.copy(&self.rect.get_origine());
+        let mut read_size = buffer_read
+            .read(&mut buffer[..], &mut self.cursor)
+            .unwrap();
         while read_size != 0 {
             write!(out, "{}", str::from_utf8(&buffer[..read_size]).unwrap()).unwrap();
             read_size = buffer_read.read(&mut buffer[..], &mut self.cursor).unwrap();
         }
-        self.cursor.y = 0;
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
@@ -133,6 +133,8 @@ impl Pane {
         self.rect.copy(rect);
         self.pty_input
             .resize(&self.rect.get_size())
-            .map_err(|_| PaneError::PaneRezise)
+            .map_err(|_| PaneError::PaneRezise)?;
+        self.draw();
+        Ok(())
     }
 }

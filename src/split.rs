@@ -4,6 +4,7 @@ use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
+use std::time::Duration;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
 
@@ -140,9 +141,12 @@ fn split_thread(
 }
 
 fn redraw_child(list_child: &mut ContainerList) {
-    list_child.iter_mut().for_each(|cont| {
+    let nb = list_child.len();
+    for cont in list_child.iter_mut() {
+        //println!("{}", nb);
+        //thread::sleep(Duration::from_millis(100));
         draw_container(cont);
-    });
+    };
 }
 
 fn destroy_child(list_child: &mut ContainerList, id: String, layout: &mut Layout) {
@@ -173,16 +177,11 @@ fn add_child_split(
         other => other,
     };
     if focused.is_some() {
-        let id = get_id_container(list_child.get(focused.unwrap()).unwrap());
-        let pos_child = list_child.iter().position(|child| match child {
-            Container::Pane(pa) => pa.identifi(&id),
-            Container::Split(sp) => sp.identifi(&id),
-            _ => panic!("this can't have other type of child"),
-        });
-        if pos_child.is_some() {
+        let cont_type = get_container_type(list_child.get(focused.unwrap()).unwrap());
+        if cont_type != ContainerType::Pane {
             let focused_child = list_child.remove(focused.unwrap());
             list_child.insert(
-                pos_child.unwrap(),
+                focused.unwrap(),
                 add_child_container(focused_child, nw_cont)?,
             );
             return Ok(());
@@ -195,8 +194,8 @@ fn add_child_split(
     for ch in list_child.iter_mut() {
         change_rect_container(&rect_child, ch);
         match direction {
-            Direction::Horizontal =>  rect_child.x += rect_child.w,
-            Direction::Vertical =>  rect_child.y += rect_child.h,
+            Direction::Horizontal => rect_child.x += rect_child.w,
+            Direction::Vertical => rect_child.y += rect_child.h,
         }
     }
     Ok(())

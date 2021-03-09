@@ -142,6 +142,7 @@ impl MiniContainer {
         self,
         parent_com_op: Option<Sender<ChildToParent>>,
         rect_op: Option<Rect>,
+        id_op: Option<String>,
     ) -> Result<Container, ContainerError> {
         if parent_com_op.is_none() && self.parent_com_op.is_none() {
             return Err(ContainerError::BadTransform);
@@ -157,18 +158,22 @@ impl MiniContainer {
             Some(re) => re,
             None => self.rect,
         };
+        let id = match id_op {
+            Some(i) => i,
+            None => self.id,
+        };
         match self.to_container {
             ContainerType::Pane => Ok(Container::Pane(Pane::new(
                 self.stdio_master,
                 parent_com,
                 rect,
-                self.id,
+                id,
             )?)),
             ContainerType::SSplit => Ok(Container::Split(Split::new(
                 self.stdio_master,
                 parent_com,
                 rect,
-                self.id,
+                id,
                 Direction::Horizontal,
                 None,
             )?)),
@@ -176,7 +181,7 @@ impl MiniContainer {
                 self.stdio_master,
                 parent_com,
                 rect,
-                self.id,
+                id,
                 Direction::Vertical,
                 None,
             )?)),

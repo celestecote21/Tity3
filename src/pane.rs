@@ -85,33 +85,38 @@ impl Pane {
     }
 
     pub fn draw(&mut self) {
+        //return;
         let mut out = &self.stdio_master;
         let buffer_read = self.buffer.read().unwrap();
-        let mut buffer = [0 as u8; 4069];
-        self.cursor.copy(&self.rect.get_origine());
+        let mut line_buf = [0 as u8; 4069];
+        let mut cursor = Coordinate {x:0, y:0};
+        //self.cursor.copy(&self.rect.get_origine());
         let mut read_size = buffer_read
-            .read(&mut buffer[..], &mut self.cursor)
+            .read(&mut line_buf[..], &mut cursor)
             .unwrap();
         while read_size != 0 {
-            write!(out, "{}", str::from_utf8(&buffer[..read_size]).unwrap()).unwrap();
-            read_size = buffer_read.read(&mut buffer[..], &mut self.cursor).unwrap();
+            write!(out, "{}", str::from_utf8(&line_buf[..read_size]).unwrap()).unwrap();
+            read_size = buffer_read.read(&mut line_buf[..], &mut cursor).unwrap();
         }
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
     pub fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()> {
+        // TODO: test if it contain an enter to put the buffer_file in a new line
         let packet = &data[..size];
         self.pty_input.write_all(packet)?;
         self.pty_input.flush()?;
         Ok(())
     }
 
-    pub fn add_child(self, cont: Container) -> Result<Container, ContainerError> {
+    pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
+        let id_split = self.id.clone();
+        self.id.push('0');
         let nw_cont = Split::new(
             self.stdio_master.try_clone().unwrap(),
             self.parent_com.clone(),
             self.rect.clone(),
-            self.id.clone(),
+            id_split,
             Direction::Horizontal,
             Some(Container::Pane(self)),
         )?;
@@ -126,8 +131,22 @@ impl Pane {
         self.id.eq(id_test)
     }
 
+    fn clean_rect(&mut self) {
+        let mut line = String::new();
+        let c = self.id.len().to_string();
+        for _ in 0..(self.rect.w - 2) {
+            line.push(' ');
+        }
+        let mut out = &self.stdio_master;
+        // TODO: error handling
+        for i in 0..self.rect.h {
+            write!(out, "{}{}", termion::cursor::Goto(self.rect.x + 1, self.rect.y + i + 1), line).unwrap();
+        }
+    }
+
     pub fn change_rect(&mut self, rect: &Rect) -> Result<(), PaneError> {
-        // TODO: need to tell to the bufferfile
+        self.clean_rect();
+        // TODO: need to tell to the bufferfile and error handling
         self.buffer.write().unwrap().change_rect(rect);
         self.y = 0;
         self.rect.copy(rect);

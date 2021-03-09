@@ -60,7 +60,7 @@ pub fn start_wind(
     let mut child = base
         .duplic(ContainerType::Pane)
         .unwrap()
-        .complet(None, None)
+        .complet(None, None, None)
         .unwrap();
     let config = WindowsConf::new(create_keymap(), com_clone_tx, base);
 

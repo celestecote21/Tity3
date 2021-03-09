@@ -88,6 +88,8 @@ impl StdoutBuffer {
 
     // TODO: not that good need a rewrite
     pub fn read(&self, buf: &mut [u8], cursor: &mut Coordinate) -> io::Result<usize> {
+        // BUG: when the pane is not on the top this doesn't work
+        // maybe need a "inside" rect to know in the vector
         if cursor.y > self.pane_rect.h || cursor.y > self.line_list.len() as u16 {
             return Ok(0);
         }
@@ -101,7 +103,8 @@ impl StdoutBuffer {
             cursor.x += buff_slice.len() as u16;
         }*/
         // TODO: check for line > 4096
-        let mut line = cursor.goto_string();
+        let coord = cursor.add(self.pane_rect.get_origine());
+        let mut line = coord.goto_string();
         cursor.y += 1;
         if buff_slice.len() <= 0 {
             return Ok(0);

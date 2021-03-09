@@ -10,6 +10,7 @@ pub struct Layout {
     base_rect: Rect,
     nb_child: usize,
     direction: Direction,
+    next_id: usize,
 }
 
 impl Layout {
@@ -18,11 +19,13 @@ impl Layout {
             base_rect,
             nb_child: 0,
             direction,
+            next_id: 1,
         }
     }
 
     pub fn add_child(&mut self) -> Rect {
         self.nb_child += 1;
+        self.next_id += 1;
         match &self.direction {
             Direction::Vertical => Rect::new(
                 self.base_rect.x,
@@ -59,6 +62,10 @@ impl Layout {
 
     pub fn get_direction(&self) -> Direction {
         self.direction
+    }
+
+    pub fn get_next_id(&self) -> usize {
+        self.next_id
     }
 }
 

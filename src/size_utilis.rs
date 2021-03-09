@@ -1,3 +1,5 @@
+use std::ops;
+
 pub struct Size {
     pub w: u16,
     pub h: u16,
@@ -34,6 +36,12 @@ impl Coordinate {
     pub fn copy(&mut self, other: &Coordinate) {
         self.x = other.x;
         self.y = other.y;
+    }
+    pub fn add(&self, other: Coordinate) -> Coordinate {
+        Coordinate {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
     }
 }
 

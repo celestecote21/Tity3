@@ -10,7 +10,6 @@ use std::time::Duration;
 
 pub struct Split {
     id: String,
-    next_id: usize,
     stdio_master: File,
     parent_com: Sender<ChildToParent>,
     rect: Rect,
@@ -31,11 +30,11 @@ impl Split {
         let (intern_com_tx, intern_com_rx) = mpsc::channel();
         let rect_clone = rect.clone();
         let intern_com_tx_clone = intern_com_tx.clone();
+        let intern_id = id.clone();
         thread::spawn(move || {
-            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, child);
+            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, child, intern_id);
         });
         let nw_split = Split {
-            next_id: 1,
             stdio_master,
             parent_com,
             rect,
@@ -103,14 +102,24 @@ fn split_thread(
     base_rect: Rect,
     direction: Direction,
     child: Option<Container>,
+    id: String,
 ) {
     let mut layout = Layout::new(base_rect, direction);
     let mut focused = None;
     let mut list_child: ContainerList = Vec::new();
 
     if child.is_some() {
-        list_child.push(child.unwrap());
-        layout.add_child();
+        match add_child_split(
+            &mut list_child,
+            child.unwrap(),
+            sender_for_child.clone(),
+            &mut layout,
+            &mut focused,
+            &id,
+        ) {
+            Err(_) => return,
+            Ok(_) => (),
+        }
     }
     loop {
         let com = match receiver.recv() {
@@ -127,9 +136,10 @@ fn split_thread(
                     sender_for_child.clone(),
                     &mut layout,
                     &mut focused,
+                    &id,
                 ) {
                     Err(_) => break,
-                    _ => (),
+                    Ok(_) => (),
                 }
             }
             ChildToParent::GetInputData(input, size) => {
@@ -170,10 +180,15 @@ fn add_child_split(
     parent_com: Sender<ChildToParent>,
     layout: &mut Layout,
     focused: &mut Option<usize>,
+    id: &str,
 ) -> Result<(), ContainerError> {
     let mut rect_child = layout.add_child();
     let nw_cont = match cont {
-        Container::MiniCont(mini) => mini.complet(Some(parent_com), Some(rect_child.clone()))?,
+        Container::MiniCont(mini) => {
+            let mut nw_id = id.to_owned();
+            nw_id.push_str(&layout.get_next_id().to_string());
+            mini.complet(Some(parent_com), Some(rect_child.clone()), Some(nw_id))?
+        }
         other => other,
     };
     if focused.is_some() {
@@ -184,6 +199,7 @@ fn add_child_split(
                 focused.unwrap(),
                 add_child_container(focused_child, nw_cont)?,
             );
+            //redraw_child(list_child);
             return Ok(());
         }
     }
@@ -198,6 +214,7 @@ fn add_child_split(
             Direction::Vertical => rect_child.y += rect_child.h,
         }
     }
+    //redraw_child(list_child);
     Ok(())
 }
 

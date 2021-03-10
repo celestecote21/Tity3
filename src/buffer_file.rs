@@ -58,7 +58,6 @@ impl StdoutBuffer {
     /// will be a lot bigger because this need to test if the line is not to big
     /// and it need also to handle all the ainsi sequence
     pub fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut i = 0;
         let mut string_building = None;
         if self.line_end == false {
             string_building = self.line_list.pop();
@@ -67,22 +66,28 @@ impl StdoutBuffer {
             Some(str) => str,
             None => String::new(),
         };
-        for c in buf.iter() {
-            i += 1;
-            if *c as char == '\n' {
-                //self.line_end = true;
+        let buf_len = buf.len();
+        let mut i = 0;
+        while i < buf_len {
+            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n') || buf[i] as char == '\n' {
                 self.line_list.push(string_building);
                 string_building = String::new();
+                if buf[i] as char == '\r' {
+                    string_building.push_str("mmm");
+                    i += 1;
+                }
+                i += 1;
                 continue;
             }
-            string_building.push(*c as char);
-            if *c as char == '\r' {
-                string_building.push_str("yo");
+            string_building.push(buf[i] as char);
+            if buf[i] as char == '\r' {
+                string_building.clear();
             }
+            i += 1;
         }
         self.line_list.push(string_building);
         self.last_y = (self.line_list.len() - 1) as u16;
-        Ok(i)
+        Ok(buf_len)
     }
 
     pub fn change_rect(&mut self, rect: &Rect) {

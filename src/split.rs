@@ -4,12 +4,12 @@ use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
+use std::time::Duration;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
 
 pub struct Split {
     id: String,
-    next_id: usize,
     stdio_master: File,
     parent_com: Sender<ChildToParent>,
     rect: Rect,
@@ -30,11 +30,18 @@ impl Split {
         let (intern_com_tx, intern_com_rx) = mpsc::channel();
         let rect_clone = rect.clone();
         let intern_com_tx_clone = intern_com_tx.clone();
+        let intern_id = id.clone();
         thread::spawn(move || {
-            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, child);
+            split_thread(
+                intern_com_rx,
+                intern_com_tx,
+                rect_clone,
+                direction,
+                child,
+                intern_id,
+            );
         });
-        let mut nw_split = Split {
-            next_id: 1,
+        let nw_split = Split {
             stdio_master,
             parent_com,
             rect,
@@ -90,6 +97,10 @@ impl Split {
     pub fn identifi(&self, id_test: &String) -> bool {
         self.id.eq(id_test)
     }
+
+    pub fn change_rect(&mut self, rect: &Rect) {
+        todo!()
+    }
 }
 
 fn split_thread(
@@ -98,13 +109,24 @@ fn split_thread(
     base_rect: Rect,
     direction: Direction,
     child: Option<Container>,
+    id: String,
 ) {
     let mut layout = Layout::new(base_rect, direction);
     let mut focused = None;
     let mut list_child: ContainerList = Vec::new();
 
     if child.is_some() {
-        list_child.push(child.unwrap());
+        match add_child_split(
+            &mut list_child,
+            child.unwrap(),
+            sender_for_child.clone(),
+            &mut layout,
+            &mut focused,
+            &id,
+        ) {
+            Err(_) => return,
+            Ok(_) => (),
+        }
     }
     loop {
         let com = match receiver.recv() {
@@ -121,9 +143,10 @@ fn split_thread(
                     sender_for_child.clone(),
                     &mut layout,
                     &mut focused,
+                    &id,
                 ) {
                     Err(_) => break,
-                    _ => (),
+                    Ok(_) => (),
                 }
             }
             ChildToParent::GetInputData(input, size) => {
@@ -135,9 +158,12 @@ fn split_thread(
 }
 
 fn redraw_child(list_child: &mut ContainerList) {
-    list_child.iter_mut().for_each(|cont| {
+    let nb = list_child.len();
+    for cont in list_child.iter_mut() {
+        //println!("{}", nb);
+        //thread::sleep(Duration::from_millis(100));
         draw_container(cont);
-    });
+    }
 }
 
 fn destroy_child(list_child: &mut ContainerList, id: String, layout: &mut Layout) {
@@ -161,31 +187,41 @@ fn add_child_split(
     parent_com: Sender<ChildToParent>,
     layout: &mut Layout,
     focused: &mut Option<usize>,
+    id: &str,
 ) -> Result<(), ContainerError> {
-    let rect_child = layout.add_child();
+    let mut rect_child = layout.add_child();
     let nw_cont = match cont {
-        Container::MiniCont(mini) => mini.complet(Some(parent_com), Some(rect_child.clone()))?,
+        Container::MiniCont(mini) => {
+            let mut nw_id = id.to_owned();
+            nw_id.push_str(&layout.get_next_id().to_string());
+            mini.complet(Some(parent_com), Some(rect_child.clone()), Some(nw_id))?
+        }
         other => other,
     };
     if focused.is_some() {
-        let id = get_id_container(list_child.get(focused.unwrap()).unwrap());
-        let pos_child = list_child.iter().position(|child| match child {
-            Container::Pane(pa) => pa.identifi(&id),
-            Container::Split(sp) => sp.identifi(&id),
-            _ => panic!("this can't have other type of child"),
-        });
-        if pos_child.is_some() {
+        let cont_type = get_container_type(list_child.get(focused.unwrap()).unwrap());
+        if cont_type != ContainerType::Pane {
             let focused_child = list_child.remove(focused.unwrap());
             list_child.insert(
-                pos_child.unwrap(),
+                focused.unwrap(),
                 add_child_container(focused_child, nw_cont)?,
             );
+            //redraw_child(list_child);
             return Ok(());
         }
     }
     list_child.push(nw_cont);
     *focused = Some(list_child.len() - 1);
     //TODO: handle with the layout
+    let direction = layout.get_direction();
+    for ch in list_child.iter_mut() {
+        change_rect_container(&rect_child, ch);
+        match direction {
+            Direction::Horizontal => rect_child.x += rect_child.w,
+            Direction::Vertical => rect_child.y += rect_child.h,
+        }
+    }
+    //redraw_child(list_child);
     Ok(())
 }
 

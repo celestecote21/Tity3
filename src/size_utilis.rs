@@ -1,3 +1,5 @@
+use std::ops;
+
 pub struct Size {
     pub w: u16,
     pub h: u16,
@@ -30,9 +32,20 @@ impl Coordinate {
     pub fn goto_string(&self) -> String {
         termion::cursor::Goto(self.x + 1, self.y + 1).to_string()
     }
+
+    pub fn copy(&mut self, other: &Coordinate) {
+        self.x = other.x;
+        self.y = other.y;
+    }
+    pub fn add(&self, other: Coordinate) -> Coordinate {
+        Coordinate {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Rect {
     pub x: u16,
     pub y: u16,
@@ -66,5 +79,12 @@ impl Rect {
             x: self.x,
             y: self.y,
         }
+    }
+
+    pub fn copy(&mut self, rect: &Rect) {
+        self.x = rect.x;
+        self.y = rect.y;
+        self.w = rect.w;
+        self.h = rect.h;
     }
 }

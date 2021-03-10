@@ -14,11 +14,13 @@ pub enum ContainerError {
     BadPane(PaneError),
 }
 
+#[derive(PartialEq)]
 pub enum ContainerType {
     SSplit,
     VSplit,
     Pane,
     Window,
+    Other,
 }
 
 pub enum ChildToParent {
@@ -61,6 +63,26 @@ pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) 
         }
         Container::Pane(pa) => {
             pa.get_input(data, size).unwrap(); // TODO: need error handling
+        }
+        _ => panic!("not full container can't get input"),
+    }
+}
+
+pub fn get_container_type(cont: &Container) -> ContainerType {
+    match cont {
+        Container::Split(sp) => ContainerType::SSplit,
+        Container::Pane(pa) => ContainerType::Pane,
+        _ => ContainerType::Other,
+    }
+}
+
+pub fn change_rect_container(rect: &Rect, cont: &mut Container) {
+    match cont {
+        Container::Split(sp) => {
+            sp.change_rect(rect);
+        }
+        Container::Pane(pa) => {
+            pa.change_rect(rect).unwrap(); // TODO: need error handling
         }
         _ => panic!("not full container can't get input"),
     }
@@ -120,6 +142,7 @@ impl MiniContainer {
         self,
         parent_com_op: Option<Sender<ChildToParent>>,
         rect_op: Option<Rect>,
+        id_op: Option<String>,
     ) -> Result<Container, ContainerError> {
         if parent_com_op.is_none() && self.parent_com_op.is_none() {
             return Err(ContainerError::BadTransform);
@@ -135,18 +158,22 @@ impl MiniContainer {
             Some(re) => re,
             None => self.rect,
         };
+        let id = match id_op {
+            Some(i) => i,
+            None => self.id,
+        };
         match self.to_container {
             ContainerType::Pane => Ok(Container::Pane(Pane::new(
                 self.stdio_master,
                 parent_com,
                 rect,
-                self.id,
+                id,
             )?)),
             ContainerType::SSplit => Ok(Container::Split(Split::new(
                 self.stdio_master,
                 parent_com,
                 rect,
-                self.id,
+                id,
                 Direction::Horizontal,
                 None,
             )?)),
@@ -154,7 +181,7 @@ impl MiniContainer {
                 self.stdio_master,
                 parent_com,
                 rect,
-                self.id,
+                id,
                 Direction::Vertical,
                 None,
             )?)),

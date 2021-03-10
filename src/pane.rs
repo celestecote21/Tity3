@@ -8,6 +8,7 @@ use crate::size_utilis::*;
 use crate::split::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
+use std::str;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -32,6 +33,8 @@ pub struct Pane {
     parent_com: Sender<ChildToParent>,
     rect: Rect,
     buffer: Arc<RwLock<StdoutBufferLock>>,
+    cursor: Coordinate,
+    y: u16,
 }
 
 impl Pane {
@@ -76,29 +79,40 @@ impl Pane {
             parent_com,
             rect,
             buffer: out_buffer_clone,
+            cursor: Coordinate { x: 0, y: 0 },
+            y: 0,
         })
     }
 
     pub fn draw(&mut self) {
-        //write!(self.stdio_master, "{}hello", termion::clear::All).unwrap();
-        write!(self.stdio_master, "hello").unwrap();
-        //todo!()
+        let mut out = &self.stdio_master;
+        let buffer_read = self.buffer.read().unwrap();
+        let mut line_buf = [0 as u8; 4069];
+        let mut cursor = Coordinate { x: 0, y: 0 };
+        let mut read_size = buffer_read.read(&mut line_buf[..], &mut cursor);
+        while read_size != 0 {
+            write!(out, "{}", str::from_utf8(&line_buf[..read_size]).unwrap()).unwrap();
+            read_size = buffer_read.read(&mut line_buf[..], &mut cursor);
+        }
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
     pub fn get_input(&mut self, data: [u8; 4096], size: usize) -> io::Result<()> {
+        // TODO: test if it contain an enter to put the buffer_file in a new line
         let packet = &data[..size];
         self.pty_input.write_all(packet)?;
         self.pty_input.flush()?;
         Ok(())
     }
 
-    pub fn add_child(self, cont: Container) -> Result<Container, ContainerError> {
+    pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
+        let id_split = self.id.clone();
+        self.id.push('0');
         let nw_cont = Split::new(
             self.stdio_master.try_clone().unwrap(),
             self.parent_com.clone(),
             self.rect.clone(),
-            self.id.clone(),
+            id_split,
             Direction::Horizontal,
             Some(Container::Pane(self)),
         )?;
@@ -113,19 +127,35 @@ impl Pane {
         self.id.eq(id_test)
     }
 
-    pub fn expand_w(&mut self) -> Result<(), PaneError> {
-        //TODO: need to chenge in the bufferout too
-        self.rect.w += 1;
-        self.pty_input
-            .resize(&self.rect.get_size())
-            .map_err(|_| PaneError::PaneRezise)
+    fn clean_rect(&mut self) {
+        let mut line = String::new();
+        let c = self.id.len().to_string();
+        for _ in 0..(self.rect.w - 2) {
+            line.push(' ');
+        }
+        let mut out = &self.stdio_master;
+        // TODO: error handling
+        for i in 0..self.rect.h {
+            write!(
+                out,
+                "{}{}",
+                termion::cursor::Goto(self.rect.x + 1, self.rect.y + i + 1),
+                line
+            )
+            .unwrap();
+        }
     }
 
-    pub fn expand_h(&mut self) -> Result<(), PaneError> {
-        //TODO: need to chenge in the bufferout too
-        self.rect.h += 1;
+    pub fn change_rect(&mut self, rect: &Rect) -> Result<(), PaneError> {
+        self.clean_rect();
+        // TODO: need to tell to the bufferfile and error handling
+        self.buffer.write().unwrap().change_rect(rect);
+        self.y = 0;
+        self.rect.copy(rect);
         self.pty_input
             .resize(&self.rect.get_size())
-            .map_err(|_| PaneError::PaneRezise)
+            .map_err(|_| PaneError::PaneRezise)?;
+        self.draw();
+        Ok(())
     }
 }

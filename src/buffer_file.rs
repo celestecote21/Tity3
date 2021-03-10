@@ -54,6 +54,7 @@ impl StdoutBuffer {
             last_y: 0,
         })
     }
+
     /// will be a lot bigger because this need to test if the line is not to big
     /// and it need also to handle all the ainsi sequence
     pub fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -75,38 +76,48 @@ impl StdoutBuffer {
                 continue;
             }
             string_building.push(*c as char);
+            if *c as char == '\r' {
+                string_building.push_str("yo");
+            }
         }
         self.line_list.push(string_building);
         self.last_y = (self.line_list.len() - 1) as u16;
         Ok(i)
     }
 
-    pub fn read(&self, buf: &mut [u8], cursor: &mut Coordinate) -> io::Result<usize> {
-        if cursor.y > self.pane_rect.h || cursor.y > self.line_list.len() as u16 {
-            return Ok(0);
-        }
-        let buff_slice = match self.line_list.get((cursor.y) as usize) {
-            Some(line_str) => line_str,
-            None => "",
+    pub fn change_rect(&mut self, rect: &Rect) {
+        self.pane_rect.copy(rect);
+        //TODO: Rezise string inside the Vec
+    }
+
+    pub fn read(&self, buf: &mut [u8], cursor: &mut Coordinate) -> usize {
+        let mut line = match self.line_list.get(cursor.y as usize) {
+            Some(s) => s.to_string(),
+            None => return 0,
         };
-        cursor.y += 1;
-        if buff_slice.len() <= 0 {
-            return Ok(0);
+        if cursor.x != 0 {
+            line.drain(..cursor.x as usize);
         }
-        let mut cursor_tmp = cursor.clone();
-        /*if self.line_end == false {
-            cursor_tmp.x += buff_slice.len() as u16;
-            cursor.x += buff_slice.len() as u16;
-        }*/
-        let mut line = cursor.goto_string();
-        line.push_str(buff_slice);
+        let window_cursor = Coordinate {
+            x: cursor.x + self.pane_rect.x,
+            y: cursor.y + self.pane_rect.y,
+        };
+        let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
+        line.insert_str(0, &test_str);
+        line.insert_str(0, &window_cursor.goto_string());
+        if line.len() > 4096 {
+            line.drain(4096..);
+            cursor.x += 4096;
+        } else {
+            cursor.x = 0;
+        }
+        cursor.y += 1;
         unsafe {
             let dst_ptr = buf.as_mut_ptr();
             let src_ptr = line.as_ptr();
-
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, line.len());
         }
-        Ok(line.len())
+        line.len()
     }
 }
 

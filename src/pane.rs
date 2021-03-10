@@ -85,18 +85,14 @@ impl Pane {
     }
 
     pub fn draw(&mut self) {
-        //return;
         let mut out = &self.stdio_master;
         let buffer_read = self.buffer.read().unwrap();
         let mut line_buf = [0 as u8; 4069];
-        let mut cursor = Coordinate {x:0, y:0};
-        //self.cursor.copy(&self.rect.get_origine());
-        let mut read_size = buffer_read
-            .read(&mut line_buf[..], &mut cursor)
-            .unwrap();
+        let mut cursor = Coordinate { x: 0, y: 0 };
+        let mut read_size = buffer_read.read(&mut line_buf[..], &mut cursor);
         while read_size != 0 {
             write!(out, "{}", str::from_utf8(&line_buf[..read_size]).unwrap()).unwrap();
-            read_size = buffer_read.read(&mut line_buf[..], &mut cursor).unwrap();
+            read_size = buffer_read.read(&mut line_buf[..], &mut cursor);
         }
     }
 
@@ -140,7 +136,13 @@ impl Pane {
         let mut out = &self.stdio_master;
         // TODO: error handling
         for i in 0..self.rect.h {
-            write!(out, "{}{}", termion::cursor::Goto(self.rect.x + 1, self.rect.y + i + 1), line).unwrap();
+            write!(
+                out,
+                "{}{}",
+                termion::cursor::Goto(self.rect.x + 1, self.rect.y + i + 1),
+                line
+            )
+            .unwrap();
         }
     }
 

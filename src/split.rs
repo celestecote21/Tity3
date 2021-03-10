@@ -32,7 +32,14 @@ impl Split {
         let intern_com_tx_clone = intern_com_tx.clone();
         let intern_id = id.clone();
         thread::spawn(move || {
-            split_thread(intern_com_rx, intern_com_tx, rect_clone, direction, child, intern_id);
+            split_thread(
+                intern_com_rx,
+                intern_com_tx,
+                rect_clone,
+                direction,
+                child,
+                intern_id,
+            );
         });
         let nw_split = Split {
             stdio_master,
@@ -156,7 +163,7 @@ fn redraw_child(list_child: &mut ContainerList) {
         //println!("{}", nb);
         //thread::sleep(Duration::from_millis(100));
         draw_container(cont);
-    };
+    }
 }
 
 fn destroy_child(list_child: &mut ContainerList, id: String, layout: &mut Layout) {

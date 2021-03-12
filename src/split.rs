@@ -1,10 +1,10 @@
 use crate::container::*;
+use crate::container_action::*;
 use crate::layout::*;
 use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
-use std::time::Duration;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
 
@@ -98,9 +98,31 @@ impl Split {
         self.id.eq(id_test)
     }
 
+    pub fn change_focus(&self, dir: &Direction) {
+        match self.intern_com.send(ChildToParent::MoveFocus(*dir)) {
+            Err(_) => self
+                .parent_com
+                .send(ChildToParent::DestroyChild(self.get_id()))
+                .unwrap(),
+            _ => (),
+        }
+    }
+
     pub fn change_rect(&mut self, rect: &Rect) {
+        // TODO
         todo!()
     }
+}
+
+struct InternSplit {
+    receiver: Receiver<ChildToParent>,
+    sender_for_child: Sender<ChildToParent>,
+    base_rect: Rect,
+    direction: Direction,
+    list_child: ContainerList,
+    layout: Layout,
+    focused: Option<usize>,
+    id: String,
 }
 
 fn split_thread(
@@ -151,6 +173,8 @@ fn split_thread(
             }
             ChildToParent::GetInputData(input, size) => {
                 send_input_to_child(&mut list_child, &mut focused, input, size)
+            }
+            ChildToParent::MoveFocus(dir) => {
             }
         }
     }

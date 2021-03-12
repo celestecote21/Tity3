@@ -129,7 +129,6 @@ impl Pane {
 
     fn clean_rect(&mut self) {
         let mut line = String::new();
-        let c = self.id.len().to_string();
         for _ in 0..(self.rect.w - 2) {
             line.push(' ');
         }
@@ -157,5 +156,8 @@ impl Pane {
             .map_err(|_| PaneError::PaneRezise)?;
         self.draw();
         Ok(())
+    }
+
+    pub fn change_focus(&self, _dire: &Direction) {
     }
 }

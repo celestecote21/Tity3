@@ -13,6 +13,7 @@ mod pty;
 mod size_utilis;
 mod split;
 mod windows;
+mod container_action;
 use container::*;
 use size_utilis::Rect;
 use windows::*;

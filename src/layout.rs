@@ -1,9 +1,17 @@
 use crate::size_utilis::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Direction {
     Vertical,
     Horizontal,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum MoveDir {
+    Left,
+    Right,
+    Up,
+    Down,
 }
 
 pub struct Layout {

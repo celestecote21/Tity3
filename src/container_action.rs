@@ -65,7 +65,7 @@ pub fn add_child_container(
     }
 }
 
-pub fn change_focus_container(dir: &Direction, cont: &mut Container)
+pub fn change_focus_container(dir: &MoveDir, cont: &mut Container)
 {
     match cont {
         Container::Split(sp) => sp.change_focus(dir),

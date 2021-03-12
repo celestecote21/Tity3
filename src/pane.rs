@@ -158,6 +158,6 @@ impl Pane {
         Ok(())
     }
 
-    pub fn change_focus(&self, _dire: &Direction) {
+    pub fn change_focus(&self, _dire: &MoveDir) {
     }
 }

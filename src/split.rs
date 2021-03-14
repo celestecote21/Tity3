@@ -13,9 +13,8 @@ pub struct Split {
     id: String,
     stdio_master: File,
     parent_com: Sender<ChildToParent>,
-    rect: Rect,
     intern_com: Sender<ChildToParent>,
-    direction: Direction,
+    layout: Arc<Mutex<Layout>>,
 }
 
 impl Split {
@@ -46,10 +45,9 @@ impl Split {
         let nw_split = Split {
             stdio_master,
             parent_com,
-            rect,
             id,
             intern_com: intern_com_tx_clone,
-            direction: Direction::Horizontal,
+            layout: layout_mut,
         };
         Ok(nw_split)
     }
@@ -94,6 +92,13 @@ impl Split {
 
     pub fn get_id(&self) -> String {
         self.id.clone()
+    }
+
+    pub fn get_type(&self) -> ContainerType {
+        match self.layout.lock().unwrap().get_direction() {
+            Direction::Horizontal => ContainerType::SSplit,
+            Direction::Vertical => ContainerType::VSplit,
+        }
     }
 
     pub fn identifi(&self, id_test: &String) -> bool {

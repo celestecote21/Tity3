@@ -36,7 +36,7 @@ pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) 
 
 pub fn get_container_type(cont: &Container) -> ContainerType {
     match cont {
-        Container::Split(sp) => ContainerType::SSplit,
+        Container::Split(sp) => sp.get_type(),
         Container::Pane(pa) => ContainerType::Pane,
         _ => ContainerType::Other,
     }

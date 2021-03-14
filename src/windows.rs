@@ -72,7 +72,7 @@ pub fn start_wind(
                 _ => break,
             };
             match com {
-                ChildToParent::Refresh => draw_container(&mut child),
+                ChildToParent::Refresh(id) => draw_container(&mut child, &id),
                 ChildToParent::AddChild(cont) => {
                     child = match add_child_container(child, cont) {
                         Ok(ch) => ch,

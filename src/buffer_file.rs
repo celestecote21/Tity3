@@ -69,7 +69,9 @@ impl StdoutBuffer {
         let buf_len = buf.len();
         let mut i = 0;
         while i < buf_len {
-            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n') || buf[i] as char == '\n' {
+            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n')
+                || buf[i] as char == '\n'
+            {
                 self.line_list.push(string_building);
                 string_building = String::new();
                 if buf[i] as char == '\r' {

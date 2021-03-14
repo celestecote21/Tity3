@@ -2,7 +2,7 @@ use crate::container::*;
 use crate::container_action::*;
 use crate::layout::*;
 use crate::size_utilis::*;
-use std::fs::File;
+use std::str;
 use std::sync::mpsc::Sender;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
@@ -16,9 +16,7 @@ pub struct Split {
 }
 
 impl Split {
-    /// need to make only on new
     pub fn new(
-        stdio_master: File,
         parent_com: Sender<ChildToParent>,
         rect: Rect,
         id: String,
@@ -37,9 +35,7 @@ impl Split {
             focused: None,
         };
         if child.is_some() {
-            nw_split = match nw_split.add_child(
-                child.unwrap(),
-            ) {
+            nw_split = match nw_split.add_child(child.unwrap()) {
                 Ok(Container::Split(c)) => (c),
                 _ => return Err(ContainerError::CreationError),
             }
@@ -49,9 +45,15 @@ impl Split {
 
     /// the Split struct contains multiple other contenaire that can ben pane os other Split
     /// So the draw fonction will call all the draw fonction of the child
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, id: &str) {
+        let selfid_len = self.id.len();
         for cont in self.list_child.iter_mut() {
-            draw_container(cont);
+            let id_tmp = get_id_container(cont);
+            if id_tmp.get(selfid_len..selfid_len + 1).is_some()
+                == id.get(selfid_len..selfid_len + 1).is_some()
+            {
+                draw_container(cont, id);
+            }
         }
     }
 
@@ -75,7 +77,11 @@ impl Split {
             Container::MiniCont(mini) => {
                 let mut nw_id = self.id.to_owned();
                 nw_id.push_str(&self.layout.get_next_id().to_string());
-                mini.complet(Some(self.parent_com.clone()), Some(rect_child.clone()), Some(nw_id))?
+                mini.complet(
+                    Some(self.parent_com.clone()),
+                    Some(rect_child.clone()),
+                    Some(nw_id),
+                )?
             }
             other => other,
         };
@@ -87,13 +93,11 @@ impl Split {
                     self.focused.unwrap(),
                     add_child_container(focused_child, nw_cont)?,
                 );
-                //redraw_child(list_child);
                 return Ok(Container::Split(self));
             }
         }
         self.list_child.push(nw_cont);
         self.focused = Some(self.list_child.len() - 1);
-        //TODO: handle with the layout
         let direction = self.layout.get_direction();
         for ch in self.list_child.iter_mut() {
             change_rect_container(&rect_child, ch);
@@ -102,12 +106,11 @@ impl Split {
                 Direction::Vertical => rect_child.y += rect_child.h,
             }
         }
-        //redraw_child(list_child);
         Ok(Container::Split(self))
     }
 
-    pub fn get_id(&self) -> String {
-        self.id.clone()
+    pub fn get_id(&self) -> &str {
+        &self.id
     }
 
     pub fn get_type(&self) -> ContainerType {
@@ -117,7 +120,7 @@ impl Split {
         }
     }
 
-    pub fn identifi(&self, id_test: &String) -> bool {
+    pub fn identifi(&self, id_test: &str) -> bool {
         self.id.eq(id_test)
     }
 

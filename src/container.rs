@@ -24,7 +24,7 @@ pub enum ContainerType {
 }
 
 pub enum ChildToParent {
-    Refresh,
+    Refresh(String),
     AddChild(Container),
     DestroyChild(String),
     GetInputData([u8; 4096], usize),
@@ -108,7 +108,6 @@ impl MiniContainer {
                 id,
             )?)),
             ContainerType::SSplit => Ok(Container::Split(Split::new(
-                self.stdio_master,
                 parent_com,
                 rect,
                 id,
@@ -116,7 +115,6 @@ impl MiniContainer {
                 None,
             )?)),
             ContainerType::VSplit => Ok(Container::Split(Split::new(
-                self.stdio_master,
                 parent_com,
                 rect,
                 id,

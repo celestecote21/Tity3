@@ -1,11 +1,11 @@
 use crate::container::*;
-use crate::size_utilis::*;
 use crate::layout::*;
+use crate::size_utilis::*;
 
-pub fn draw_container(cont: &mut Container) {
+pub fn draw_container(cont: &mut Container, id: &str) {
     match cont {
         Container::Split(sp) => {
-            sp.draw();
+            sp.draw(id);
         }
         Container::Pane(pa) => {
             pa.draw();
@@ -14,7 +14,7 @@ pub fn draw_container(cont: &mut Container) {
     }
 }
 
-pub fn get_id_container(cont: &Container) -> String {
+pub fn get_id_container(cont: &Container) -> &str {
     match cont {
         Container::Split(sp) => sp.get_id(),
         Container::Pane(pa) => pa.get_id(),
@@ -65,8 +65,7 @@ pub fn add_child_container(
     }
 }
 
-pub fn change_focus_container(dir: &MoveDir, cont: &mut Container)
-{
+pub fn change_focus_container(dir: &MoveDir, cont: &mut Container) {
     match cont {
         Container::Split(sp) => sp.change_focus(dir),
         Container::Pane(pa) => pa.change_focus(dir),

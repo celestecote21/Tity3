@@ -24,9 +24,12 @@ impl KeyAction {
                     .send(ChildToParent::AddChild(Container::MiniCont(minicont)))
                     .unwrap();
             }
-            Action::DeletePane => {},
+            Action::DeletePane => {}
             Action::MoveFocus => {
-                config.get_sender().send(ChildToParent::MoveFocus(MoveDir::Left)).unwrap();
+                config
+                    .get_sender()
+                    .send(ChildToParent::MoveFocus(MoveDir::Left))
+                    .unwrap();
             }
         }
     }

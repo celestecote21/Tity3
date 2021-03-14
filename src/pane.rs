@@ -66,7 +66,9 @@ impl Pane {
                 let read = &packet[..count];
                 buffer.write(&read).unwrap();
                 drop(buffer);
-                parent_com_clone.send(ChildToParent::Refresh).unwrap();
+                parent_com_clone
+                    .send(ChildToParent::Refresh(cpy_id.clone()))
+                    .unwrap();
             }
             parent_com_clone
                 .send(ChildToParent::DestroyChild(cpy_id))
@@ -109,7 +111,6 @@ impl Pane {
         let id_split = self.id.clone();
         self.id.push('0');
         let nw_cont = Split::new(
-            self.stdio_master.try_clone().unwrap(),
             self.parent_com.clone(),
             self.rect.clone(),
             id_split,
@@ -119,11 +120,11 @@ impl Pane {
         Ok(nw_cont.add_child(cont)?)
     }
 
-    pub fn get_id(&self) -> String {
-        self.id.clone()
+    pub fn get_id(&self) -> &str {
+        &self.id
     }
 
-    pub fn identifi(&self, id_test: &String) -> bool {
+    pub fn identifi(&self, id_test: &str) -> bool {
         self.id.eq(id_test)
     }
 
@@ -158,6 +159,5 @@ impl Pane {
         Ok(())
     }
 
-    pub fn change_focus(&self, _dire: &MoveDir) {
-    }
+    pub fn change_focus(&self, _dire: &MoveDir) {}
 }

@@ -3,27 +3,16 @@ use crate::container_action::*;
 use crate::layout::*;
 use crate::size_utilis::*;
 use std::fs::File;
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::sync::mpsc::Sender;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
 
-struct InternSplit {
-    receiver: Receiver<ChildToParent>,
-    com_parent: Sender<ChildToParent>,
+pub struct Split {
+    parent_com: Sender<ChildToParent>,
     list_child: ContainerList,
-    layout: Arc<Mutex<Layout>>,
+    layout: Layout,
     focused: Option<usize>,
     id: String,
-}
-
-pub struct Split {
-    id: String,
-    stdio_master: File,
-    parent_com: Sender<ChildToParent>,
-    intern_com: Sender<ChildToParent>,
-    intern: InternSplit,
 }
 
 impl Split {
@@ -36,29 +25,16 @@ impl Split {
         direction: Direction,
         child: Option<Container>,
     ) -> Result<Split, ContainerError> {
-        let (intern_com_tx, intern_com_rx) = mpsc::channel();
         let rect_clone = rect.clone();
-        let intern_com_tx_clone = intern_com_tx.clone();
-        let intern_id = id.clone();
-        let layout_mut = Arc::new(Mutex::new(Layout::new(rect_clone, direction)));
-        let c_layout_mut = Arc::clone(&layout_mut);
+        let layout = Layout::new(rect_clone, direction);
         let list_child: ContainerList = Vec::new();
 
-        let intern = InternSplit {
-            receiver: intern_com_rx,
-            com_parent: intern_com_tx,
-            list_child,
-            layout: c_layout_mut,
-            focused: None,
-            id: intern_id ,
-        };
-
         let mut nw_split = Split {
-            stdio_master,
             parent_com,
             id,
-            intern_com: intern_com_tx_clone,
-            intern,
+            list_child,
+            layout,
+            focused: None,
         };
         if child.is_some() {
             nw_split = match nw_split.add_child(
@@ -74,18 +50,18 @@ impl Split {
     /// the Split struct contains multiple other contenaire that can ben pane os other Split
     /// So the draw fonction will call all the draw fonction of the child
     pub fn draw(&mut self) {
-        for cont in self.intern.list_child.iter_mut() {
+        for cont in self.list_child.iter_mut() {
             draw_container(cont);
         }
     }
 
     pub fn get_input(&mut self, data: [u8; 4096], size: usize) {
-        if self.intern.focused.is_none() {
+        if self.focused.is_none() {
             return;
         }
-        let focused_child = match self.intern.list_child.get_mut(self.intern.focused.unwrap()) {
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
             Some(child) => Some(child),
-            None => get_focused_child(&mut self.intern, None),
+            None => get_focused_child(self, None),
         };
         if focused_child.is_none() {
             return;
@@ -94,32 +70,32 @@ impl Split {
     }
 
     pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
-        let mut rect_child = self.intern.layout.lock().unwrap().add_child();
+        let mut rect_child = self.layout.add_child();
         let nw_cont = match cont {
             Container::MiniCont(mini) => {
-                let mut nw_id = self.intern.id.to_owned();
-                nw_id.push_str(&self.intern.layout.lock().unwrap().get_next_id().to_string());
-                mini.complet(Some(self.intern.com_parent.clone()), Some(rect_child.clone()), Some(nw_id))?
+                let mut nw_id = self.id.to_owned();
+                nw_id.push_str(&self.layout.get_next_id().to_string());
+                mini.complet(Some(self.parent_com.clone()), Some(rect_child.clone()), Some(nw_id))?
             }
             other => other,
         };
-        if self.intern.focused.is_some() {
-            let cont_type = get_container_type(self.intern.list_child.get(self.intern.focused.unwrap()).unwrap());
+        if self.focused.is_some() {
+            let cont_type = get_container_type(self.list_child.get(self.focused.unwrap()).unwrap());
             if cont_type != ContainerType::Pane {
-                let focused_child = self.intern.list_child.remove(self.intern.focused.unwrap());
-                self.intern.list_child.insert(
-                    self.intern.focused.unwrap(),
+                let focused_child = self.list_child.remove(self.focused.unwrap());
+                self.list_child.insert(
+                    self.focused.unwrap(),
                     add_child_container(focused_child, nw_cont)?,
                 );
                 //redraw_child(list_child);
                 return Ok(Container::Split(self));
             }
         }
-        self.intern.list_child.push(nw_cont);
-        self.intern.focused = Some(self.intern.list_child.len() - 1);
+        self.list_child.push(nw_cont);
+        self.focused = Some(self.list_child.len() - 1);
         //TODO: handle with the layout
-        let direction = self.intern.layout.lock().unwrap().get_direction();
-        for ch in self.intern.list_child.iter_mut() {
+        let direction = self.layout.get_direction();
+        for ch in self.list_child.iter_mut() {
             change_rect_container(&rect_child, ch);
             match direction {
                 Direction::Horizontal => rect_child.x += rect_child.w,
@@ -135,7 +111,7 @@ impl Split {
     }
 
     pub fn get_type(&self) -> ContainerType {
-        match self.intern.layout.lock().unwrap().get_direction() {
+        match self.layout.get_direction() {
             Direction::Horizontal => ContainerType::SSplit,
             Direction::Vertical => ContainerType::VSplit,
         }
@@ -146,9 +122,9 @@ impl Split {
     }
 
     pub fn change_focus(&mut self, dir: &MoveDir) {
-        let focused_child = match self.intern.list_child.get_mut(self.intern.focused.unwrap()) {
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
             Some(child) => Some(child),
-            None => get_focused_child(&mut self.intern, None),
+            None => get_focused_child(self, None),
         };
         if focused_child.is_none() {
             return;
@@ -162,7 +138,7 @@ impl Split {
 }
 
 fn get_focused_child<'a>(
-    intern: &'a mut InternSplit,
+    intern: &'a mut Split,
     new_focus: Option<usize>,
 ) -> Option<&'a mut Container> {
     if new_focus.is_some() {

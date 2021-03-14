@@ -83,6 +83,9 @@ pub fn start_wind(
                     let (data, size) = parse_input(data, size, &config);
                     get_input_container(data, size, &mut child);
                 }
+                ChildToParent::MoveFocus(dir) => {
+                    change_focus_container(&dir, &mut child);
+                }
                 _ => (),
             }
         }

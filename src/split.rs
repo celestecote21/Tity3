@@ -4,6 +4,7 @@ use crate::layout::*;
 use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
@@ -31,12 +32,13 @@ impl Split {
         let rect_clone = rect.clone();
         let intern_com_tx_clone = intern_com_tx.clone();
         let intern_id = id.clone();
+        let layout_mut = Arc::new(Mutex::new(Layout::new(rect_clone, direction)));
+        let c_layout_mut = Arc::clone(&layout_mut);
         thread::spawn(move || {
             split_thread(
                 intern_com_rx,
                 intern_com_tx,
-                rect_clone,
-                direction,
+                c_layout_mut,
                 child,
                 intern_id,
             );
@@ -118,7 +120,7 @@ struct InternSplit {
     receiver: Receiver<ChildToParent>,
     com_parent: Sender<ChildToParent>,
     list_child: ContainerList,
-    layout: Layout,
+    layout: Arc<Mutex<Layout>>,
     focused: Option<usize>,
     id: String,
 }
@@ -126,12 +128,11 @@ struct InternSplit {
 fn split_thread(
     receiver: Receiver<ChildToParent>,
     sender_for_child: Sender<ChildToParent>,
-    base_rect: Rect,
-    direction: Direction,
+    layout: Arc<Mutex<Layout>>,
     child: Option<Container>,
     id: String,
 ) {
-    let layout = Layout::new(base_rect, direction);
+    // init the interne of the thread
     let list_child: ContainerList = Vec::new();
 
     let mut intern = InternSplit {
@@ -143,6 +144,7 @@ fn split_thread(
         id,
     };
 
+    // add the first child if this thread is create with a child
     if child.is_some() {
         match add_child_split(
             child.unwrap(),
@@ -152,6 +154,7 @@ fn split_thread(
             Ok(_) => (),
         }
     }
+    // the main loop, it will receive message and act depending on it
     loop {
         let com = match intern.receiver.recv() {
             Ok(data) => data,
@@ -173,6 +176,7 @@ fn split_thread(
                 send_input_to_child(&mut intern, input, size)
             }
             ChildToParent::MoveFocus(dir) => {
+                split_change_focus(&mut intern, dir);
             }
         }
     }
@@ -194,7 +198,7 @@ fn destroy_child(intern: &mut InternSplit, id: String) {
 
     if pos_child.is_some() {
         intern.list_child.remove(pos_child.unwrap());
-        intern.layout.del_child();
+        intern.layout.lock().unwrap().del_child();
         //TODO: recalculate the size of childs and set it
         redraw_child(intern);
     }
@@ -204,11 +208,11 @@ fn add_child_split(
     cont: Container,
     intern: &mut InternSplit,
 ) -> Result<(), ContainerError> {
-    let mut rect_child = intern.layout.add_child();
+    let mut rect_child = intern.layout.lock().unwrap().add_child();
     let nw_cont = match cont {
         Container::MiniCont(mini) => {
             let mut nw_id = intern.id.to_owned();
-            nw_id.push_str(&intern.layout.get_next_id().to_string());
+            nw_id.push_str(&intern.layout.lock().unwrap().get_next_id().to_string());
             mini.complet(Some(intern.com_parent.clone()), Some(rect_child.clone()), Some(nw_id))?
         }
         other => other,
@@ -228,7 +232,7 @@ fn add_child_split(
     intern.list_child.push(nw_cont);
     intern.focused = Some(intern.list_child.len() - 1);
     //TODO: handle with the layout
-    let direction = intern.layout.get_direction();
+    let direction = intern.layout.lock().unwrap().get_direction();
     for ch in intern.list_child.iter_mut() {
         change_rect_container(&rect_child, ch);
         match direction {
@@ -250,7 +254,7 @@ fn send_input_to_child(
     }
     let focused_child = match intern.list_child.get_mut(intern.focused.unwrap()) {
         Some(child) => Some(child),
-        None => get_focused_child(&mut intern.list_child, None, &mut intern.focused),
+        None => get_focused_child(intern, None),
     };
     if focused_child.is_none() {
         return;
@@ -259,25 +263,35 @@ fn send_input_to_child(
 }
 
 fn get_focused_child<'a>(
-    list_child: &'a mut ContainerList,
+    intern: &'a mut InternSplit,
     new_focus: Option<usize>,
-    focused: &mut Option<usize>,
 ) -> Option<&'a mut Container> {
     if new_focus.is_some() {
-        *focused = Some(new_focus.unwrap());
-        return list_child.get_mut(focused.unwrap());
+        intern.focused = Some(new_focus.unwrap());
+        return intern.list_child.get_mut(intern.focused.unwrap());
     }
-    if list_child.is_empty() {
-        *focused = None;
+    if intern.list_child.is_empty() {
+        intern.focused = None;
         return None;
     }
-    if focused.is_none() {
+    if intern.focused.is_none() {
         return None;
     }
-    let mut tmp = focused.unwrap();
-    while list_child.get(tmp).is_none() {
+    let mut tmp = intern.focused.unwrap();
+    while intern.list_child.get(tmp).is_none() {
         tmp -= 1;
     }
-    *focused = Some(tmp);
-    list_child.get_mut(tmp)
+    intern.focused = Some(tmp);
+    intern.list_child.get_mut(tmp)
+}
+
+fn split_change_focus(intern: &mut InternSplit, dir: MoveDir)
+{
+    let focused_child = match intern.list_child.get_mut(intern.focused.unwrap()) {
+        Some(child) => Some(child),
+        None => get_focused_child(intern, None),
+    };
+    if focused_child.is_none() {
+        return;
+    }
 }

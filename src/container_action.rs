@@ -8,7 +8,19 @@ pub fn draw_container(cont: &mut Container, id: &str) {
             sp.draw(id);
         }
         Container::Pane(pa) => {
-            pa.draw();
+            pa.draw(id);
+        }
+        _ => panic!("not ful container can't be drawn"),
+    }
+}
+
+pub fn destroy_container(cont: &mut Container, id: &str) -> Result<(), ()> {
+    match cont {
+        Container::Split(sp) => {
+            sp.destroy(id)
+        }
+        Container::Pane(pa) => {
+            pa.destroy(id)
         }
         _ => panic!("not ful container can't be drawn"),
     }

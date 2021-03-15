@@ -73,6 +73,12 @@ pub fn start_wind(
             };
             match com {
                 ChildToParent::Refresh(id) => draw_container(&mut child, &id),
+                ChildToParent::DestroyChild(id) => {
+                    match destroy_container(&mut child, &id) {
+                        Err(_) => break,
+                        Ok(_) => (),
+                    }
+                }
                 ChildToParent::AddChild(cont) => {
                     child = match add_child_container(child, cont) {
                         Ok(ch) => ch,

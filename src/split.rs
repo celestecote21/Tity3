@@ -46,6 +46,7 @@ impl Split {
     /// the Split struct contains multiple other contenaire that can ben pane os other Split
     /// So the draw fonction will call all the draw fonction of the child
     pub fn draw(&mut self, id: &str) {
+        // TODO: see with the id how to handle
         let selfid_len = self.id.len();
         for cont in self.list_child.iter_mut() {
             let id_tmp = get_id_container(cont);
@@ -98,14 +99,7 @@ impl Split {
         }
         self.list_child.push(nw_cont);
         self.focused = Some(self.list_child.len() - 1);
-        let direction = self.layout.get_direction();
-        for ch in self.list_child.iter_mut() {
-            change_rect_container(&rect_child, ch);
-            match direction {
-                Direction::Horizontal => rect_child.x += rect_child.w,
-                Direction::Vertical => rect_child.y += rect_child.h,
-            }
-        }
+        self.update_rect_child(&mut rect_child);
         Ok(Container::Split(self))
     }
 
@@ -131,6 +125,50 @@ impl Split {
         };
         if focused_child.is_none() {
             return;
+        }
+    }
+
+    pub fn destroy(&mut self, id: &str) -> Result<(), ()> {
+        let mut i = 0;
+
+        // if the the container to destroy is self or id == -1 => this mean detroy all child
+        if self.id == id || id == "-1"{
+            for cont in self.list_child.iter_mut() {
+                destroy_container(cont, "-1");
+            }
+            self.list_child.clear();
+            return Ok(());
+        }
+        if self.list_child.is_empty() {
+            return Err(());
+        }
+        // supress the pane who is focused
+        if id == "-2" {
+
+        }
+        for cont in self.list_child.iter_mut() {
+            match destroy_container(cont, id) {
+                Ok(_) => {
+                    self.list_child.remove(i);
+                    let mut rect_child = self.layout.del_child();
+                    self.update_rect_child(&mut rect_child);
+                    return Ok(());
+                },
+                Err(_) => (),
+            }
+            i += 1;
+        }
+        Err(())
+    }
+
+    fn update_rect_child(&mut self, rect_child: &mut Rect) {
+        let direction = self.layout.get_direction();
+        for ch in self.list_child.iter_mut() {
+            change_rect_container(&rect_child, ch);
+            match direction {
+                Direction::Horizontal => rect_child.x += rect_child.w,
+                Direction::Vertical => rect_child.y += rect_child.h,
+            }
         }
     }
 

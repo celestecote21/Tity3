@@ -75,7 +75,6 @@ impl StdoutBuffer {
                 self.line_list.push(string_building);
                 string_building = String::new();
                 if buf[i] as char == '\r' {
-                    string_building.push_str("mmm");
                     i += 1;
                 }
                 i += 1;
@@ -109,8 +108,10 @@ impl StdoutBuffer {
             x: cursor.x + self.pane_rect.x,
             y: cursor.y + self.pane_rect.y,
         };
-        let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
-        line.insert_str(0, &test_str);
+        if cfg!(debug) {
+            let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
+            line.insert_str(0, &test_str);
+        }
         line.insert_str(0, &window_cursor.goto_string());
         if line.len() > 4096 {
             line.drain(4096..);

@@ -73,12 +73,16 @@ pub fn start_wind(
             };
             match com {
                 ChildToParent::Refresh(id) => draw_container(&mut child, &id),
-                ChildToParent::DestroyChild(id) => {
-                    match destroy_container(&mut child, &id) {
-                        Err(_) => break,
-                        Ok(_) => (),
+                ChildToParent::DestroyChild(id) => match destroy_container(&mut child, &id) {
+                    Err(_) => {
+                        if id == "-1" || id == "-2" {
+                            ()
+                        } else {
+                            break;
+                        }
                     }
-                }
+                    Ok(_) => (),
+                },
                 ChildToParent::AddChild(cont) => {
                     child = match add_child_container(child, cont) {
                         Ok(ch) => ch,
@@ -90,6 +94,7 @@ pub fn start_wind(
                     get_input_container(data, size, &mut child);
                 }
                 ChildToParent::MoveFocus(dir) => {
+                    println!("yess");
                     change_focus_container(&dir, &mut child);
                 }
                 _ => (),
@@ -107,8 +112,12 @@ fn create_keymap() -> Vec<KeyAction> {
             action: Action::AddPane,
         },
         KeyAction {
-            keycode: 141,
+            keycode: 113,
             action: Action::DeletePane,
+        },
+        KeyAction {
+            keycode: 100,
+            action: Action::MoveFocus,
         },
     ]
 }

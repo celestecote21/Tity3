@@ -132,7 +132,7 @@ impl Split {
         let mut i = 0;
 
         // if the the container to destroy is self or id == -1 => this mean detroy all child
-        if self.id == id || id == "-1"{
+        if self.id == id || id == "-1" {
             for cont in self.list_child.iter_mut() {
                 destroy_container(cont, "-1");
             }
@@ -143,8 +143,20 @@ impl Split {
             return Err(());
         }
         // supress the pane who is focused
-        if id == "-2" {
-
+        if id == "-2" && self.focused.is_some() {
+            match destroy_container(
+                self.list_child.get_mut(self.focused.unwrap()).unwrap(),
+                "-2",
+            ) {
+                Ok(_) => {
+                    get_focused_child(self, None);
+                    self.list_child.remove(self.focused.unwrap());
+                    let mut rect_child = self.layout.del_child();
+                    self.update_rect_child(&mut rect_child);
+                    return Err(());
+                }
+                Err(_) => return Err(()),
+            }
         }
         for cont in self.list_child.iter_mut() {
             match destroy_container(cont, id) {
@@ -153,7 +165,7 @@ impl Split {
                     let mut rect_child = self.layout.del_child();
                     self.update_rect_child(&mut rect_child);
                     return Ok(());
-                },
+                }
                 Err(_) => (),
             }
             i += 1;
@@ -195,6 +207,9 @@ fn get_focused_child<'a>(
     }
     let mut tmp = intern.focused.unwrap();
     while intern.list_child.get(tmp).is_none() {
+        if tmp <= 0 {
+            tmp = intern.list_child.len();
+        }
         tmp -= 1;
     }
     intern.focused = Some(tmp);

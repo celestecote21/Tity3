@@ -68,13 +68,13 @@ impl Pane {
                 buffer.write(&read).unwrap();
                 drop(buffer);
                 match parent_com_clone.send(ChildToParent::Refresh(cpy_id.clone())) {
-                    Ok (_) => (),
+                    Ok(_) => (),
                     _ => break,
                 }
             }
-            parent_com_clone
-                .send(ChildToParent::DestroyChild(cpy_id))
-                .unwrap();
+            match parent_com_clone.send(ChildToParent::DestroyChild(cpy_id)) {
+                _ => (),
+            }
         });
         Ok(Pane {
             id,
@@ -167,7 +167,7 @@ impl Pane {
     }
 
     pub fn destroy(&mut self, id: &str) -> Result<(), ()> {
-        if id != self.id {
+        if id != self.id && id != "-2" && id != "-1" {
             return Err(());
         }
         self.clean_rect();

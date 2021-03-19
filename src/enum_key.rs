@@ -24,7 +24,12 @@ impl KeyAction {
                     .send(ChildToParent::AddChild(Container::MiniCont(minicont)))
                     .unwrap();
             }
-            Action::DeletePane => {}
+            Action::DeletePane => {
+                config
+                    .get_sender()
+                    .send(ChildToParent::DestroyChild("-2".to_string()))
+                    .unwrap();
+            }
             Action::MoveFocus => {
                 config
                     .get_sender()

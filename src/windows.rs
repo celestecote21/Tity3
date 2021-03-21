@@ -95,7 +95,6 @@ pub fn start_wind(
                     get_input_container(data, size, &mut child);
                 }
                 ChildToParent::MoveFocus(dir) => {
-                    println!("yess");
                     change_focus_container(&dir, &mut child);
                 }
                 _ => (),

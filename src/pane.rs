@@ -107,6 +107,15 @@ impl Pane {
             write!(out, "{}", str::from_utf8(&line_buf[..read_size]).unwrap()).unwrap();
             read_size = buffer_read.read(&mut line_buf[..], &mut cursor);
         }
+        let tmp = buffer_read.get_cursor_position(&cursor);
+        if tmp.is_ok() {
+            self.cursor = tmp.unwrap();
+        }
+    }
+
+    pub fn draw_cursor(&mut self) {
+        let mut out = &self.stdio_master;
+        write!(out, "{}", self.cursor.goto_string()).unwrap();
     }
 
     /// because it's a pane the data go directly to the pseudo terminal

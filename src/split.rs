@@ -47,15 +47,41 @@ impl Split {
     /// So the draw fonction will call all the draw fonction of the child
     pub fn draw(&mut self, id: &str) {
         // TODO: see with the id how to handle
-        let selfid_len = self.id.len();
+        //let selfid_len = self.id.len();
         for cont in self.list_child.iter_mut() {
-            let id_tmp = get_id_container(cont);
+            draw_container(cont, id);
+            /*let id_tmp = get_id_container(cont);
             if id_tmp.get(selfid_len..selfid_len + 1)
                 == id.get(selfid_len..selfid_len + 1)
             {
                 draw_container(cont, id);
-            }
+            }*/
         }
+        if self.focused.is_none() {
+            return;
+        }
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
+            Some(child) => Some(child),
+            None => get_focused_child(self, None),
+        };
+        if focused_child.is_none() {
+            return;
+        }
+        //draw_cursor_container(focused_child.unwrap());
+    }
+
+    pub fn draw_cursor(&mut self) {
+        if self.focused.is_none() {
+            return;
+        }
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
+            Some(child) => Some(child),
+            None => get_focused_child(self, None),
+        };
+        if focused_child.is_none() {
+            return;
+        }
+        draw_cursor_container(focused_child.unwrap());
     }
 
     pub fn get_input(&mut self, data: [u8; 4096], size: usize) {

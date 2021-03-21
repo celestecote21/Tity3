@@ -14,6 +14,14 @@ pub fn draw_container(cont: &mut Container, id: &str) {
     }
 }
 
+pub fn draw_cursor_container(cont: &mut Container) {
+    match cont {
+        Container::Split(sp) => sp.draw_cursor(),
+        Container::Pane(pa) => pa.draw_cursor(),
+        _ => panic!("not ful container can't be drawn"),
+    }
+}
+
 pub fn destroy_container(cont: &mut Container, id: &str) -> Result<(), ()> {
     match cont {
         Container::Split(sp) => sp.destroy(id),

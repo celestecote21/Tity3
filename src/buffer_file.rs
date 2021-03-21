@@ -127,6 +127,20 @@ impl StdoutBuffer {
         }
         line.len()
     }
+
+    pub fn get_cursor_position(&self, cursor: &Coordinate) -> Result<Coordinate, ()> {
+        if cursor.y <= 0 {
+            return Err(());
+        }
+        let line = match self.line_list.get(cursor.y as usize - 1) {
+            Some(s) => s.to_string(),
+            None => return Err(()),
+        };
+        Ok(Coordinate {
+            x: self.pane_rect.x + line.len() as u16,
+            y: cursor.y + self.pane_rect.y - 1,
+        })
+    }
 }
 
 #[cfg(test)]

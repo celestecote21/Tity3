@@ -80,3 +80,11 @@ pub fn change_focus_container(dir: &MoveDir, cont: &mut Container) {
         _ => panic!("this type of container have child"),
     };
 }
+
+pub fn container_focus_is_movable(cont: &Container, dir: &MoveDir) -> bool {
+    match cont {
+        Container::Split(sp) => sp.is_focus_movable(dir),
+        Container::Pane(pa) => false,
+        _ => panic!("this type of container have child"),
+    }
+}

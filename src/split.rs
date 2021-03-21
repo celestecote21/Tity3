@@ -126,6 +126,29 @@ impl Split {
         if focused_child.is_none() {
             return;
         }
+        let focused_child = focused_child.unwrap();
+        if container_focus_is_movable(focused_child, dir) {
+            change_focus_container(dir, focused_child);
+        } else {
+            let index_focus = self.focused.unwrap();
+            if index_focus == 0 {
+                self.focused = Some(self.list_child.len() - 1);
+            } else {
+                self.focused = Some(index_focus - 1);
+            }
+        }
+    }
+
+    pub fn is_focus_movable(&self, dir: &MoveDir) -> bool {
+        // maybe also check if we are at the end or if it empty
+        if self.layout.get_direction().check_move_dir(dir) {
+            return true;
+        }
+        let focused_child = match self.list_child.get(self.focused.unwrap()) {
+            Some(child) => child,
+            None => return false,
+        };
+        return container_focus_is_movable(focused_child, dir)
     }
 
     pub fn destroy(&mut self, id: &str) -> Result<(), ()> {

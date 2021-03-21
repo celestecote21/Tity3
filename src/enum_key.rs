@@ -6,7 +6,7 @@ use std::cmp::PartialEq;
 pub enum Action {
     AddPane,
     DeletePane,
-    MoveFocus,
+    MoveFocus(MoveDir),
 }
 
 pub struct KeyAction {
@@ -30,10 +30,10 @@ impl KeyAction {
                     .send(ChildToParent::DestroyChild("-2".to_string()))
                     .unwrap();
             }
-            Action::MoveFocus => {
+            Action::MoveFocus(dir) => {
                 config
                     .get_sender()
-                    .send(ChildToParent::MoveFocus(MoveDir::Left))
+                    .send(ChildToParent::MoveFocus(dir))
                     .unwrap();
             }
         }

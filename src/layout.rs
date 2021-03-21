@@ -1,9 +1,17 @@
 use crate::size_utilis::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Direction {
     Vertical,
     Horizontal,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum MoveDir {
+    Left,
+    Right,
+    Up,
+    Down,
 }
 
 pub struct Layout {
@@ -79,6 +87,7 @@ mod tests {
         let base_rect = Rect::from_tupple(termion::terminal_size().unwrap());
         let mut layout = Layout::new(base_rect.clone(), Direction::Horizontal);
         assert_eq!(base_rect, layout.add_child());
+        assert_eq!(2, layout.get_next_id());
         assert_eq!(base_rect.w / 2, layout.add_child().w);
         assert_eq!(base_rect.w / 3, layout.add_child().w);
     }
@@ -92,5 +101,25 @@ mod tests {
         assert_eq!(base_rect.w / 3, layout.add_child().w);
         assert_eq!(base_rect.w / 2, layout.del_child().w);
         assert_eq!(base_rect.w, layout.del_child().w);
+    }
+
+    #[test]
+    fn adding_child_test_vert() {
+        let base_rect = Rect::from_tupple(termion::terminal_size().unwrap());
+        let mut layout = Layout::new(base_rect.clone(), Direction::Vertical);
+        assert_eq!(base_rect, layout.add_child());
+        assert_eq!(base_rect.h / 2, layout.add_child().h);
+        assert_eq!(base_rect.h / 3, layout.add_child().h);
+    }
+
+    #[test]
+    fn del_child_test_vert() {
+        let base_rect = Rect::from_tupple(termion::terminal_size().unwrap());
+        let mut layout = Layout::new(base_rect.clone(), Direction::Vertical);
+        assert_eq!(base_rect, layout.add_child());
+        assert_eq!(base_rect.h / 2, layout.add_child().h);
+        assert_eq!(base_rect.h / 3, layout.add_child().h);
+        assert_eq!(base_rect.h / 2, layout.del_child().h);
+        assert_eq!(base_rect.h, layout.del_child().h);
     }
 }

@@ -16,6 +16,7 @@ pub fn parse_input(data: [u8; 4096], size: usize, config: &WindowsConf) -> ([u8;
 }
 
 pub fn parse_command(keycode: u8, config: &WindowsConf) -> bool {
+    //println!("{}", keycode);
     let pos = match config
         .get_keymap()
         .iter()

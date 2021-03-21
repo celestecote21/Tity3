@@ -69,11 +69,12 @@ impl StdoutBuffer {
         let buf_len = buf.len();
         let mut i = 0;
         while i < buf_len {
-            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n') || buf[i] as char == '\n' {
+            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n')
+                || buf[i] as char == '\n'
+            {
                 self.line_list.push(string_building);
                 string_building = String::new();
                 if buf[i] as char == '\r' {
-                    string_building.push_str("mmm");
                     i += 1;
                 }
                 i += 1;
@@ -107,8 +108,10 @@ impl StdoutBuffer {
             x: cursor.x + self.pane_rect.x,
             y: cursor.y + self.pane_rect.y,
         };
-        let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
-        line.insert_str(0, &test_str);
+        if cfg!(debug) {
+            let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
+            line.insert_str(0, &test_str);
+        }
         line.insert_str(0, &window_cursor.goto_string());
         if line.len() > 4096 {
             line.drain(4096..);
@@ -161,7 +164,7 @@ mod tests {
         let mut fun_res = [0; 4096];
 
         assert_eq!(stout_buff.write(packet).unwrap(), packet.len());
-        let read_size = stout_buff.read(&mut fun_res, &mut cursor).unwrap();
+        let read_size = stout_buff.read(&mut fun_res, &mut cursor);
         assert_eq!(read_size, result.len());
         assert_eq!(
             unsafe { str::from_utf8_unchecked(&fun_res[..read_size]) },

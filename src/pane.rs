@@ -11,7 +11,7 @@ use std::io::{self, Read, Write};
 use std::str;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
-use std::thread;
+use std::thread::{self, JoinHandle};
 
 #[derive(PartialEq)]
 pub struct PaneIdentifier {
@@ -33,6 +33,7 @@ pub struct Pane {
     parent_com: Sender<ChildToParent>,
     rect: Rect,
     buffer: Arc<RwLock<StdoutBufferLock>>,
+    thread_hand: JoinHandle<()>,
     cursor: Coordinate,
     y: u16,
 }
@@ -54,7 +55,7 @@ impl Pane {
         let out_buffer_clone = out_buffer.clone();
         let parent_com_clone = parent_com.clone();
         let cpy_id = id.clone();
-        thread::spawn(move || {
+        let thread_hand = thread::spawn(move || {
             loop {
                 let mut packet = [0; 4096];
                 let count = match pty_io_clone.read(&mut packet) {
@@ -66,11 +67,14 @@ impl Pane {
                 let read = &packet[..count];
                 buffer.write(&read).unwrap();
                 drop(buffer);
-                parent_com_clone.send(ChildToParent::Refresh).unwrap();
+                match parent_com_clone.send(ChildToParent::Refresh(cpy_id.clone())) {
+                    Ok(_) => (),
+                    _ => break,
+                }
             }
-            parent_com_clone
-                .send(ChildToParent::DestroyChild(cpy_id))
-                .unwrap();
+            match parent_com_clone.send(ChildToParent::DestroyChild(cpy_id)) {
+                _ => (),
+            }
         });
         Ok(Pane {
             id,
@@ -79,12 +83,16 @@ impl Pane {
             parent_com,
             rect,
             buffer: out_buffer_clone,
+            thread_hand,
             cursor: Coordinate { x: 0, y: 0 },
             y: 0,
         })
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, id: &str) {
+        /*if self.id != id {
+            return;
+        }*/
         let mut out = &self.stdio_master;
         let buffer_read = self.buffer.read().unwrap();
         let mut line_buf = [0 as u8; 4069];
@@ -109,7 +117,6 @@ impl Pane {
         let id_split = self.id.clone();
         self.id.push('0');
         let nw_cont = Split::new(
-            self.stdio_master.try_clone().unwrap(),
             self.parent_com.clone(),
             self.rect.clone(),
             id_split,
@@ -119,17 +126,16 @@ impl Pane {
         Ok(nw_cont.add_child(cont)?)
     }
 
-    pub fn get_id(&self) -> String {
-        self.id.clone()
+    pub fn get_id(&self) -> &str {
+        &self.id
     }
 
-    pub fn identifi(&self, id_test: &String) -> bool {
+    pub fn identifi(&self, id_test: &str) -> bool {
         self.id.eq(id_test)
     }
 
     fn clean_rect(&mut self) {
         let mut line = String::new();
-        let c = self.id.len().to_string();
         for _ in 0..(self.rect.w - 2) {
             line.push(' ');
         }
@@ -147,6 +153,7 @@ impl Pane {
     }
 
     pub fn change_rect(&mut self, rect: &Rect) -> Result<(), PaneError> {
+        let id = self.id.clone();
         self.clean_rect();
         // TODO: need to tell to the bufferfile and error handling
         self.buffer.write().unwrap().change_rect(rect);
@@ -155,7 +162,16 @@ impl Pane {
         self.pty_input
             .resize(&self.rect.get_size())
             .map_err(|_| PaneError::PaneRezise)?;
-        self.draw();
+        self.draw(&id);
         Ok(())
     }
+
+    pub fn destroy(&mut self, id: &str) -> Result<(), ()> {
+        if id != self.id && id != "-2" && id != "-1" {
+            return Err(());
+        }
+        self.clean_rect();
+        Ok(())
+    }
+    pub fn change_focus(&self, _dire: &MoveDir) {}
 }

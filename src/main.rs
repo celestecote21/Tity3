@@ -26,7 +26,7 @@ fn main() {
     let (wind_com, wind_thread) = match start_wind(
         stdio_master.try_clone().unwrap(),
         base_rect,
-        String::from("0"),
+        "0".to_string(),
     ) {
         Ok(a) => a,
         _ => panic!("can't open the windows"),

@@ -164,7 +164,7 @@ mod tests {
         let mut fun_res = [0; 4096];
 
         assert_eq!(stout_buff.write(packet).unwrap(), packet.len());
-        let read_size = stout_buff.read(&mut fun_res, &mut cursor).unwrap();
+        let read_size = stout_buff.read(&mut fun_res, &mut cursor);
         assert_eq!(read_size, result.len());
         assert_eq!(
             unsafe { str::from_utf8_unchecked(&fun_res[..read_size]) },

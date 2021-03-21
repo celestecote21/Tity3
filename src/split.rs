@@ -154,14 +154,20 @@ impl Split {
         }
         let focused_child = focused_child.unwrap();
         if container_focus_is_movable(focused_child, dir) {
-            change_focus_container(dir, focused_child);
+            return change_focus_container(dir, focused_child);
+        }
+        let mult: i32 = if dir == &MoveDir::Down || dir == &MoveDir::Left {
+            -1
         } else {
-            let index_focus = self.focused.unwrap();
-            if index_focus == 0 {
-                self.focused = Some(self.list_child.len() - 1);
-            } else {
-                self.focused = Some(index_focus - 1);
-            }
+            1
+        };
+        let index_focus: i32 = self.focused.unwrap() as i32 + mult;
+        if index_focus < 0 {
+            self.focused = Some(self.list_child.len() - 1);
+        } else if index_focus >= self.list_child.len() as i32 {
+            self.focused = Some(0);
+        } else {
+            self.focused = Some(index_focus as usize);
         }
     }
 
@@ -174,7 +180,7 @@ impl Split {
             Some(child) => child,
             None => return false,
         };
-        return container_focus_is_movable(focused_child, dir)
+        container_focus_is_movable(focused_child, dir)
     }
 
     pub fn destroy(&mut self, id: &str) -> Result<(), ()> {

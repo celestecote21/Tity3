@@ -9,7 +9,7 @@ use crate::split::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::str;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
 
@@ -31,9 +31,9 @@ pub struct Pane {
     stdio_master: File,
     pty_input: Pty,
     parent_com: Sender<ChildToParent>,
+    chang_name: Sender<String>,
     rect: Rect,
     buffer: Arc<RwLock<StdoutBufferLock>>,
-    thread_hand: JoinHandle<()>,
     cursor: Coordinate,
     y: u16,
 }
@@ -54,14 +54,19 @@ impl Pane {
         let out_buffer = Arc::new(RwLock::new(StdoutBufferLock::new(rect.clone()).unwrap()));
         let out_buffer_clone = out_buffer.clone();
         let parent_com_clone = parent_com.clone();
-        let cpy_id = id.clone();
-        let thread_hand = thread::spawn(move || {
+        let (chang_name, chang_name_rec) = mpsc::channel();
+        let mut cpy_id = id.clone();
+        thread::spawn(move || {
             loop {
                 let mut packet = [0; 4096];
                 let count = match pty_io_clone.read(&mut packet) {
                     Ok(read) => read,
                     _ => break,
                 };
+                match chang_name_rec.try_recv() {
+                    Ok(new_name) => cpy_id = new_name,
+                    _ => (),
+                }
                 let mut buffer = out_buffer.write().unwrap();
 
                 let read = &packet[..count];
@@ -81,9 +86,9 @@ impl Pane {
             stdio_master,
             pty_input: pty_handle,
             parent_com,
+            chang_name,
             rect,
             buffer: out_buffer_clone,
-            thread_hand,
             cursor: Coordinate { x: 0, y: 0 },
             y: 0,
         })
@@ -116,6 +121,7 @@ impl Pane {
     pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
         let id_split = self.id.clone();
         self.id.push('0');
+        self.chang_name.send(self.id.clone()).unwrap();
         let nw_cont = Split::new(
             self.parent_com.clone(),
             self.rect.clone(),

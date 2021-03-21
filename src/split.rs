@@ -50,8 +50,8 @@ impl Split {
         let selfid_len = self.id.len();
         for cont in self.list_child.iter_mut() {
             let id_tmp = get_id_container(cont);
-            if id_tmp.get(selfid_len..selfid_len + 1).is_some()
-                == id.get(selfid_len..selfid_len + 1).is_some()
+            if id_tmp.get(selfid_len..selfid_len + 1)
+                == id.get(selfid_len..selfid_len + 1)
             {
                 draw_container(cont, id);
             }

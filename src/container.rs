@@ -5,6 +5,7 @@ use crate::split::Split;
 use std::fs::File;
 use std::sync::mpsc::Sender;
 
+/// A list of Container enum
 pub type ContainerList = Vec<Container>;
 
 #[derive(Debug)]
@@ -14,6 +15,7 @@ pub enum ContainerError {
     BadPane(PaneError),
 }
 
+/// All the differente type of container it can be
 #[derive(PartialEq)]
 pub enum ContainerType {
     SSplit,
@@ -23,6 +25,7 @@ pub enum ContainerType {
     Other,
 }
 
+/// This enum is what child in the tree on container send to the main thread
 pub enum ChildToParent {
     Refresh(String),
     AddChild(Container),
@@ -31,12 +34,15 @@ pub enum ChildToParent {
     MoveFocus(MoveDir),
 }
 
+/// The Container enum can containe differente Struct
 pub enum Container {
     Split(Split),
     Pane(Pane),
     MiniCont(MiniContainer),
 }
 
+/// The MiniContainer struct is a not complet Container but containe all the info to be converted
+/// to a full feature Container
 pub struct MiniContainer {
     stdio_master: File,
     parent_com_op: Option<Sender<ChildToParent>>,
@@ -62,6 +68,7 @@ impl MiniContainer {
         }
     }
 
+    /// A MiniContainer can be duplicate
     pub fn duplic(&self, to_container: ContainerType) -> Result<MiniContainer, ContainerError> {
         let stdio_clone = match self.stdio_master.try_clone() {
             Ok(f) => f,
@@ -76,6 +83,8 @@ impl MiniContainer {
         })
     }
 
+    /// This transform a MiniContainer to a full-feature Container like a Pane or a Split
+    /// It need to provide some missing information
     pub fn complet(
         self,
         parent_com_op: Option<Sender<ChildToParent>>,

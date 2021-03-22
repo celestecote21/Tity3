@@ -1,7 +1,12 @@
+//! # container_action
+//!
+//! A file containing all the action that a Container can do
+
 use crate::container::*;
 use crate::layout::*;
 use crate::size_utilis::*;
 
+/// Call the draw fonction of corresponding struct inside the Container
 pub fn draw_container(cont: &mut Container, id: &str) {
     match cont {
         Container::Split(sp) => {
@@ -14,6 +19,7 @@ pub fn draw_container(cont: &mut Container, id: &str) {
     }
 }
 
+/// Call the destroy fonction of corresponding struct inside the Container
 pub fn destroy_container(cont: &mut Container, id: &str) -> Result<(), ()> {
     match cont {
         Container::Split(sp) => sp.destroy(id),
@@ -22,6 +28,7 @@ pub fn destroy_container(cont: &mut Container, id: &str) -> Result<(), ()> {
     }
 }
 
+/// Call the get_id fonction of corresponding struct inside the Container
 pub fn get_id_container(cont: &Container) -> &str {
     match cont {
         Container::Split(sp) => sp.get_id(),
@@ -30,6 +37,7 @@ pub fn get_id_container(cont: &Container) -> &str {
     }
 }
 
+/// Call the get_input fonction of corresponding struct inside the Container
 pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) {
     match cont {
         Container::Split(sp) => {
@@ -42,6 +50,7 @@ pub fn get_input_container(data: [u8; 4096], size: usize, cont: &mut Container) 
     }
 }
 
+/// Call the get_type fonction of corresponding struct inside the Container
 pub fn get_container_type(cont: &Container) -> ContainerType {
     match cont {
         Container::Split(sp) => sp.get_type(),
@@ -50,6 +59,7 @@ pub fn get_container_type(cont: &Container) -> ContainerType {
     }
 }
 
+/// Call the change_rect fonction of corresponding struct inside the Container
 pub fn change_rect_container(rect: &Rect, cont: &mut Container) {
     match cont {
         Container::Split(sp) => {
@@ -62,6 +72,7 @@ pub fn change_rect_container(rect: &Rect, cont: &mut Container) {
     }
 }
 
+/// Call the add_child fonction of corresponding struct inside the Container
 pub fn add_child_container(
     cont: Container,
     nw_child: Container,
@@ -73,6 +84,7 @@ pub fn add_child_container(
     }
 }
 
+/// Call the change_focus fonction of corresponding struct inside the Container
 pub fn change_focus_container(dir: &MoveDir, cont: &mut Container) {
     match cont {
         Container::Split(sp) => sp.change_focus(dir),

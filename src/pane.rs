@@ -26,6 +26,10 @@ pub enum PaneError {
     PaneRezise,
 }
 
+/// The pane Container containe a [Pty](crate::pty::Pty) and communicate the outer information
+/// It handle also the printing of the output of commande
+/// The produceed output is saved in a [StdoutBuffer](crate::buffer_file::StdoutBuffer), it permit
+/// to write in a thread and read in another
 pub struct Pane {
     id: String,
     stdio_master: File,

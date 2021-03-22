@@ -9,9 +9,9 @@ use crate::split::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::str;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, RwLock};
-use std::thread;
+use std::thread::{self, JoinHandle};
 
 #[derive(PartialEq)]
 pub struct PaneIdentifier {
@@ -26,11 +26,16 @@ pub enum PaneError {
     PaneRezise,
 }
 
+/// The pane Container containe a [Pty](crate::pty::Pty) and communicate the outer information
+/// It handle also the printing of the output of commande
+/// The produceed output is saved in a [StdoutBuffer](crate::buffer_file::StdoutBuffer), it permit
+/// to write in a thread and read in another
 pub struct Pane {
     id: String,
     stdio_master: File,
     pty_input: Pty,
     parent_com: Sender<ChildToParent>,
+    chang_name: Sender<String>,
     rect: Rect,
     buffer: Arc<RwLock<StdoutBufferLock>>,
     cursor: Coordinate,
@@ -53,7 +58,8 @@ impl Pane {
         let out_buffer = Arc::new(RwLock::new(StdoutBufferLock::new(rect.clone()).unwrap()));
         let out_buffer_clone = out_buffer.clone();
         let parent_com_clone = parent_com.clone();
-        let cpy_id = id.clone();
+        let (chang_name, chang_name_rec) = mpsc::channel();
+        let mut cpy_id = id.clone();
         thread::spawn(move || {
             loop {
                 let mut packet = [0; 4096];
@@ -61,22 +67,30 @@ impl Pane {
                     Ok(read) => read,
                     _ => break,
                 };
+                match chang_name_rec.try_recv() {
+                    Ok(new_name) => cpy_id = new_name,
+                    _ => (),
+                }
                 let mut buffer = out_buffer.write().unwrap();
 
                 let read = &packet[..count];
                 buffer.write(&read).unwrap();
                 drop(buffer);
-                parent_com_clone.send(ChildToParent::Refresh).unwrap();
+                match parent_com_clone.send(ChildToParent::Refresh(cpy_id.clone())) {
+                    Ok(_) => (),
+                    _ => break,
+                }
             }
-            parent_com_clone
-                .send(ChildToParent::DestroyChild(cpy_id))
-                .unwrap();
+            match parent_com_clone.send(ChildToParent::DestroyChild(cpy_id)) {
+                _ => (),
+            }
         });
         Ok(Pane {
             id,
             stdio_master,
             pty_input: pty_handle,
             parent_com,
+            chang_name,
             rect,
             buffer: out_buffer_clone,
             cursor: Coordinate { x: 0, y: 0 },
@@ -84,7 +98,10 @@ impl Pane {
         })
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, id: &str) {
+        /*if self.id != id {
+            return;
+        }*/
         let mut out = &self.stdio_master;
         let buffer_read = self.buffer.read().unwrap();
         let mut line_buf = [0 as u8; 4069];
@@ -94,6 +111,15 @@ impl Pane {
             write!(out, "{}", str::from_utf8(&line_buf[..read_size]).unwrap()).unwrap();
             read_size = buffer_read.read(&mut line_buf[..], &mut cursor);
         }
+        let tmp = buffer_read.get_cursor_position(&cursor);
+        if tmp.is_ok() {
+            self.cursor = tmp.unwrap();
+        }
+    }
+
+    pub fn draw_cursor(&mut self) {
+        let mut out = &self.stdio_master;
+        write!(out, "{}", self.cursor.goto_string()).unwrap();
     }
 
     /// because it's a pane the data go directly to the pseudo terminal
@@ -108,8 +134,8 @@ impl Pane {
     pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
         let id_split = self.id.clone();
         self.id.push('0');
+        self.chang_name.send(self.id.clone()).unwrap();
         let nw_cont = Split::new(
-            self.stdio_master.try_clone().unwrap(),
             self.parent_com.clone(),
             self.rect.clone(),
             id_split,
@@ -119,17 +145,16 @@ impl Pane {
         Ok(nw_cont.add_child(cont)?)
     }
 
-    pub fn get_id(&self) -> String {
-        self.id.clone()
+    pub fn get_id(&self) -> &str {
+        &self.id
     }
 
-    pub fn identifi(&self, id_test: &String) -> bool {
+    pub fn identifi(&self, id_test: &str) -> bool {
         self.id.eq(id_test)
     }
 
     fn clean_rect(&mut self) {
         let mut line = String::new();
-        let c = self.id.len().to_string();
         for _ in 0..(self.rect.w - 2) {
             line.push(' ');
         }
@@ -147,6 +172,7 @@ impl Pane {
     }
 
     pub fn change_rect(&mut self, rect: &Rect) -> Result<(), PaneError> {
+        let id = self.id.clone();
         self.clean_rect();
         // TODO: need to tell to the bufferfile and error handling
         self.buffer.write().unwrap().change_rect(rect);
@@ -155,7 +181,16 @@ impl Pane {
         self.pty_input
             .resize(&self.rect.get_size())
             .map_err(|_| PaneError::PaneRezise)?;
-        self.draw();
+        self.draw(&id);
         Ok(())
     }
+
+    pub fn destroy(&mut self, id: &str) -> Result<(), ()> {
+        if id != self.id && id != "-2" && id != "-1" {
+            return Err(());
+        }
+        self.clean_rect();
+        Ok(())
+    }
+    pub fn change_focus(&self, _dire: &MoveDir) {}
 }

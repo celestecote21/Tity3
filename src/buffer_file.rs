@@ -7,6 +7,7 @@ use std::io;
 use std::ops;
 use std::ptr;
 
+/// Juste a wrapper around [StdoutBuffer](crate::buffer_file::StdoutBuffer) to be deref
 pub struct StdoutBufferLock {
     stdoutBuffer: StdoutBuffer,
 }
@@ -33,7 +34,7 @@ impl ops::DerefMut for StdoutBufferLock {
     }
 }
 
-/// each pane will have a StdoutBuffer:
+/// Each pane will have a StdoutBuffer:
 /// the thread containing the process will send all the stdout here
 /// and this wil process the data to form a list of line
 /// the line will not be greater than the size of the pane
@@ -69,11 +70,12 @@ impl StdoutBuffer {
         let buf_len = buf.len();
         let mut i = 0;
         while i < buf_len {
-            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n') || buf[i] as char == '\n' {
+            if (i + 1 < buf_len && buf[i] as char == '\r' && buf[i + 1] as char == '\n')
+                || buf[i] as char == '\n'
+            {
                 self.line_list.push(string_building);
                 string_building = String::new();
                 if buf[i] as char == '\r' {
-                    string_building.push_str("mmm");
                     i += 1;
                 }
                 i += 1;
@@ -107,8 +109,10 @@ impl StdoutBuffer {
             x: cursor.x + self.pane_rect.x,
             y: cursor.y + self.pane_rect.y,
         };
-        let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
-        line.insert_str(0, &test_str);
+        if cfg!(debug) {
+            let test_str = format!("{} {}", window_cursor.x, window_cursor.y);
+            line.insert_str(0, &test_str);
+        }
         line.insert_str(0, &window_cursor.goto_string());
         if line.len() > 4096 {
             line.drain(4096..);
@@ -123,6 +127,20 @@ impl StdoutBuffer {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, line.len());
         }
         line.len()
+    }
+
+    pub fn get_cursor_position(&self, cursor: &Coordinate) -> Result<Coordinate, ()> {
+        if cursor.y <= 0 {
+            return Err(());
+        }
+        let line = match self.line_list.get(cursor.y as usize - 1) {
+            Some(s) => s.to_string(),
+            None => return Err(()),
+        };
+        Ok(Coordinate {
+            x: self.pane_rect.x + line.len() as u16,
+            y: cursor.y + self.pane_rect.y - 1,
+        })
     }
 }
 
@@ -161,7 +179,7 @@ mod tests {
         let mut fun_res = [0; 4096];
 
         assert_eq!(stout_buff.write(packet).unwrap(), packet.len());
-        let read_size = stout_buff.read(&mut fun_res, &mut cursor).unwrap();
+        let read_size = stout_buff.read(&mut fun_res, &mut cursor);
         assert_eq!(read_size, result.len());
         assert_eq!(
             unsafe { str::from_utf8_unchecked(&fun_res[..read_size]) },

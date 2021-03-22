@@ -1,269 +1,298 @@
 use crate::container::*;
+use crate::container_action::*;
 use crate::layout::*;
 use crate::size_utilis::*;
-use std::fs::File;
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::thread;
-use std::time::Duration;
+use std::str;
+use std::sync::mpsc::Sender;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
 
+/// A type of container that can hold other container, put pane verticaly or horizontaly
 pub struct Split {
-    id: String,
-    stdio_master: File,
     parent_com: Sender<ChildToParent>,
-    rect: Rect,
-    intern_com: Sender<ChildToParent>,
-    direction: Direction,
+    list_child: ContainerList,
+    layout: Layout,
+    focused: Option<usize>,
+    id: String,
 }
 
 impl Split {
-    /// need to make only on new
+    /// create a new Split container, used only in the
+    /// [complet](crate::container::MiniContainer::complet) fonction of [MiniContainer](crate::container::MiniContainer)
     pub fn new(
-        stdio_master: File,
         parent_com: Sender<ChildToParent>,
         rect: Rect,
         id: String,
         direction: Direction,
         child: Option<Container>,
     ) -> Result<Split, ContainerError> {
-        let (intern_com_tx, intern_com_rx) = mpsc::channel();
         let rect_clone = rect.clone();
-        let intern_com_tx_clone = intern_com_tx.clone();
-        let intern_id = id.clone();
-        thread::spawn(move || {
-            split_thread(
-                intern_com_rx,
-                intern_com_tx,
-                rect_clone,
-                direction,
-                child,
-                intern_id,
-            );
-        });
-        let nw_split = Split {
-            stdio_master,
+        let layout = Layout::new(rect_clone, direction);
+        let list_child: ContainerList = Vec::new();
+
+        let mut nw_split = Split {
             parent_com,
-            rect,
             id,
-            intern_com: intern_com_tx_clone,
-            direction: Direction::Horizontal,
+            list_child,
+            layout,
+            focused: None,
         };
+        if child.is_some() {
+            nw_split = match nw_split.add_child(child.unwrap()) {
+                Ok(Container::Split(c)) => (c),
+                _ => return Err(ContainerError::CreationError),
+            }
+        }
         Ok(nw_split)
     }
 
-    /// the Split struct contains multiple other contenaire that can ben pane os other Split
-    /// So the draw fonction will call all the draw fonction of the child
-    /// but because the handleling of the child is inside a thread
-    /// it send the refresh commande
-    pub fn draw(&self) {
-        match self.intern_com.send(ChildToParent::Refresh) {
-            Err(_) => self
-                .parent_com
-                .send(ChildToParent::DestroyChild(self.get_id()))
-                .unwrap(),
-            _ => (),
+    /// The draw fonction will call draw fonction of childs
+    pub fn draw(&mut self, id: &str) {
+        // TODO: see with the id how to handle
+        //let selfid_len = self.id.len();
+        for cont in self.list_child.iter_mut() {
+            draw_container(cont, id);
+            /*let id_tmp = get_id_container(cont);
+            if id_tmp.get(selfid_len..selfid_len + 1)
+                == id.get(selfid_len..selfid_len + 1)
+            {
+                draw_container(cont, id);
+            }*/
         }
+        if self.focused.is_none() {
+            return;
+        }
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
+            Some(child) => Some(child),
+            None => get_focused_child(self, None),
+        };
+        if focused_child.is_none() {
+            return;
+        }
+        //draw_cursor_container(focused_child.unwrap());
     }
 
+    pub fn draw_cursor(&mut self) {
+        if self.focused.is_none() {
+            return;
+        }
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
+            Some(child) => Some(child),
+            None => get_focused_child(self, None),
+        };
+        if focused_child.is_none() {
+            return;
+        }
+        draw_cursor_container(focused_child.unwrap());
+    }
+
+
+    /// It will pass the data to the focused child
     pub fn get_input(&mut self, data: [u8; 4096], size: usize) {
-        match self
-            .intern_com
-            .send(ChildToParent::GetInputData(data, size))
-        {
-            Err(_) => self
-                .parent_com
-                .send(ChildToParent::DestroyChild(self.get_id()))
-                .unwrap(),
-            _ => (),
+        if self.focused.is_none() {
+            return;
         }
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
+            Some(child) => Some(child),
+            None => get_focused_child(self, None),
+        };
+        if focused_child.is_none() {
+            return;
+        }
+        get_input_container(data, size, focused_child.unwrap());
     }
 
-    pub fn add_child(self, cont: Container) -> Result<Container, ContainerError> {
-        match self.intern_com.send(ChildToParent::AddChild(cont)) {
-            Err(_) => self
-                .parent_com
-                .send(ChildToParent::DestroyChild(self.get_id()))
-                .unwrap(),
-            _ => (),
+    /// Create a new child in the split
+    ///
+    /// It will also resize all the previous children
+    pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
+        let mut rect_child = self.layout.add_child();
+        let nw_cont = match cont {
+            Container::MiniCont(mini) => {
+                let mut nw_id = self.id.to_owned();
+                nw_id.push_str(&self.layout.get_next_id().to_string());
+                mini.complet(
+                    Some(self.parent_com.clone()),
+                    Some(rect_child.clone()),
+                    Some(nw_id),
+                )?
+            }
+            other => other,
+        };
+        if self.focused.is_some() {
+            let cont_type = get_container_type(self.list_child.get(self.focused.unwrap()).unwrap());
+            if cont_type != ContainerType::Pane {
+                let focused_child = self.list_child.remove(self.focused.unwrap());
+                self.list_child.insert(
+                    self.focused.unwrap(),
+                    add_child_container(focused_child, nw_cont)?,
+                );
+                return Ok(Container::Split(self));
+            }
         }
+        self.list_child.push(nw_cont);
+        self.focused = Some(self.list_child.len() - 1);
+        self.update_rect_child(&mut rect_child);
         Ok(Container::Split(self))
     }
 
-    pub fn get_id(&self) -> String {
-        self.id.clone()
+    /// Just return the id of the split
+    pub fn get_id(&self) -> &str {
+        &self.id
     }
 
-    pub fn identifi(&self, id_test: &String) -> bool {
+    /// Juste returne the type of the container
+    ///
+    /// It can be either:
+    ///  * [SSplit](crate::container::ContainerType::SSplit)
+    ///  * [VSplit](crate::container::ContainerType::VSplit)
+    /// depending if the split is Vertical on Horizontal
+    pub fn get_type(&self) -> ContainerType {
+        match self.layout.get_direction() {
+            Direction::Horizontal => ContainerType::SSplit,
+            Direction::Vertical => ContainerType::VSplit,
+        }
+    }
+
+    pub fn identifi(&self, id_test: &str) -> bool {
         self.id.eq(id_test)
     }
 
-    pub fn change_rect(&mut self, rect: &Rect) {
+    /// move the cursor, so the focus, on a differente child
+    ///
+    /// # Arguments
+    ///  * `dir` - the direction where the cursor will go
+    pub fn change_focus(&mut self, dir: &MoveDir) {
+        let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
+            Some(child) => Some(child),
+            None => get_focused_child(self, None),
+        };
+        if focused_child.is_none() {
+            return;
+        }
+        let focused_child = focused_child.unwrap();
+        if container_focus_is_movable(focused_child, dir) {
+            return change_focus_container(dir, focused_child);
+        }
+        let mult: i32 = if dir == &MoveDir::Down || dir == &MoveDir::Left {
+            -1
+        } else {
+            1
+        };
+        let index_focus: i32 = self.focused.unwrap() as i32 + mult;
+        if index_focus < 0 {
+            self.focused = Some(self.list_child.len() - 1);
+        } else if index_focus >= self.list_child.len() as i32 {
+            self.focused = Some(0);
+        } else {
+            self.focused = Some(index_focus as usize);
+        }
+    }
+
+    pub fn is_focus_movable(&self, dir: &MoveDir) -> bool {
+        // maybe also check if we are at the end or if it empty
+        if self.layout.get_direction().check_move_dir(dir) {
+            return true;
+        }
+        let focused_child = match self.list_child.get(self.focused.unwrap()) {
+            Some(child) => child,
+            None => return false,
+        };
+        container_focus_is_movable(focused_child, dir)
+    }
+
+    /// Depending of the id it will destroy children or itself
+    ///
+    /// # Arguments
+    ///  * `id` - The id to kill or the "-1" or the "-2" special value
+    /// "-1" => it will destroy the container itself so all it child too
+    /// "-2" => destroy the focused child
+    pub fn destroy(&mut self, id: &str) -> Result<(), ()> {
+        let mut i = 0;
+
+        // if the the container to destroy is self or id == -1 => this mean detroy all child
+        if self.id == id || id == "-1" {
+            for cont in self.list_child.iter_mut() {
+                destroy_container(cont, "-1");
+            }
+            self.list_child.clear();
+            return Ok(());
+        }
+        if self.list_child.is_empty() {
+            return Err(());
+        }
+        // supress the pane who is focused
+        if id == "-2" && self.focused.is_some() {
+            match destroy_container(
+                self.list_child.get_mut(self.focused.unwrap()).unwrap(),
+                "-2",
+            ) {
+                Ok(_) => {
+                    get_focused_child(self, None);
+                    self.list_child.remove(self.focused.unwrap());
+                    let mut rect_child = self.layout.del_child();
+                    self.update_rect_child(&mut rect_child);
+                    return Err(());
+                }
+                Err(_) => return Err(()),
+            }
+        }
+        for cont in self.list_child.iter_mut() {
+            match destroy_container(cont, id) {
+                Ok(_) => {
+                    self.list_child.remove(i);
+                    let mut rect_child = self.layout.del_child();
+                    self.update_rect_child(&mut rect_child);
+                    return Ok(());
+                }
+                Err(_) => (),
+            }
+            i += 1;
+        }
+        Err(())
+    }
+
+    /// Each Container have a Rect parametre that define it's size, this fonction permit to change
+    /// this rect bounds. So it resize all of it children
+    fn update_rect_child(&mut self, rect_child: &mut Rect) {
+        let direction = self.layout.get_direction();
+        for ch in self.list_child.iter_mut() {
+            change_rect_container(&rect_child, ch);
+            match direction {
+                Direction::Horizontal => rect_child.x += rect_child.w,
+                Direction::Vertical => rect_child.y += rect_child.h,
+            }
+        }
+    }
+
+    pub fn change_rect(&mut self, _rect: &Rect) {
+        // TODO
         todo!()
     }
 }
 
-fn split_thread(
-    receiver: Receiver<ChildToParent>,
-    sender_for_child: Sender<ChildToParent>,
-    base_rect: Rect,
-    direction: Direction,
-    child: Option<Container>,
-    id: String,
-) {
-    let mut layout = Layout::new(base_rect, direction);
-    let mut focused = None;
-    let mut list_child: ContainerList = Vec::new();
-
-    if child.is_some() {
-        match add_child_split(
-            &mut list_child,
-            child.unwrap(),
-            sender_for_child.clone(),
-            &mut layout,
-            &mut focused,
-            &id,
-        ) {
-            Err(_) => return,
-            Ok(_) => (),
-        }
-    }
-    loop {
-        let com = match receiver.recv() {
-            Ok(data) => data,
-            _ => break,
-        };
-        match com {
-            ChildToParent::Refresh => redraw_child(&mut list_child),
-            ChildToParent::DestroyChild(id) => destroy_child(&mut list_child, id, &mut layout),
-            ChildToParent::AddChild(cont) => {
-                match add_child_split(
-                    &mut list_child,
-                    cont,
-                    sender_for_child.clone(),
-                    &mut layout,
-                    &mut focused,
-                    &id,
-                ) {
-                    Err(_) => break,
-                    Ok(_) => (),
-                }
-            }
-            ChildToParent::GetInputData(input, size) => {
-                send_input_to_child(&mut list_child, &mut focused, input, size)
-            }
-        }
-    }
-    //TODO: supresse this container
-}
-
-fn redraw_child(list_child: &mut ContainerList) {
-    let nb = list_child.len();
-    for cont in list_child.iter_mut() {
-        //println!("{}", nb);
-        //thread::sleep(Duration::from_millis(100));
-        draw_container(cont);
-    }
-}
-
-fn destroy_child(list_child: &mut ContainerList, id: String, layout: &mut Layout) {
-    let pos_child = list_child.iter().position(|child| match child {
-        Container::Pane(pa) => pa.identifi(&id),
-        Container::Split(sp) => sp.identifi(&id),
-        _ => panic!("this can't have other type of child"),
-    });
-
-    if pos_child.is_some() {
-        list_child.remove(pos_child.unwrap());
-        layout.del_child();
-        //TODO: recalculate the size of childs and set it
-        redraw_child(list_child);
-    }
-}
-
-fn add_child_split(
-    list_child: &mut ContainerList,
-    cont: Container,
-    parent_com: Sender<ChildToParent>,
-    layout: &mut Layout,
-    focused: &mut Option<usize>,
-    id: &str,
-) -> Result<(), ContainerError> {
-    let mut rect_child = layout.add_child();
-    let nw_cont = match cont {
-        Container::MiniCont(mini) => {
-            let mut nw_id = id.to_owned();
-            nw_id.push_str(&layout.get_next_id().to_string());
-            mini.complet(Some(parent_com), Some(rect_child.clone()), Some(nw_id))?
-        }
-        other => other,
-    };
-    if focused.is_some() {
-        let cont_type = get_container_type(list_child.get(focused.unwrap()).unwrap());
-        if cont_type != ContainerType::Pane {
-            let focused_child = list_child.remove(focused.unwrap());
-            list_child.insert(
-                focused.unwrap(),
-                add_child_container(focused_child, nw_cont)?,
-            );
-            //redraw_child(list_child);
-            return Ok(());
-        }
-    }
-    list_child.push(nw_cont);
-    *focused = Some(list_child.len() - 1);
-    //TODO: handle with the layout
-    let direction = layout.get_direction();
-    for ch in list_child.iter_mut() {
-        change_rect_container(&rect_child, ch);
-        match direction {
-            Direction::Horizontal => rect_child.x += rect_child.w,
-            Direction::Vertical => rect_child.y += rect_child.h,
-        }
-    }
-    //redraw_child(list_child);
-    Ok(())
-}
-
-fn send_input_to_child(
-    list_child: &mut ContainerList,
-    focused: &mut Option<usize>,
-    input: [u8; 4096],
-    size: usize,
-) {
-    if focused.is_none() {
-        return;
-    }
-    let focused_child = match list_child.get_mut(focused.unwrap()) {
-        Some(child) => Some(child),
-        None => get_focused_child(list_child, None, focused),
-    };
-    if focused_child.is_none() {
-        return;
-    }
-    get_input_container(input, size, focused_child.unwrap());
-}
-
 fn get_focused_child<'a>(
-    list_child: &'a mut ContainerList,
+    intern: &'a mut Split,
     new_focus: Option<usize>,
-    focused: &mut Option<usize>,
 ) -> Option<&'a mut Container> {
     if new_focus.is_some() {
-        *focused = Some(new_focus.unwrap());
-        return list_child.get_mut(focused.unwrap());
+        intern.focused = Some(new_focus.unwrap());
+        return intern.list_child.get_mut(intern.focused.unwrap());
     }
-    if list_child.is_empty() {
-        *focused = None;
+    if intern.list_child.is_empty() {
+        intern.focused = None;
         return None;
     }
-    if focused.is_none() {
+    if intern.focused.is_none() {
         return None;
     }
-    let mut tmp = focused.unwrap();
-    while list_child.get(tmp).is_none() {
+    let mut tmp = intern.focused.unwrap();
+    while intern.list_child.get(tmp).is_none() {
+        if tmp <= 0 {
+            tmp = intern.list_child.len();
+        }
         tmp -= 1;
     }
-    *focused = Some(tmp);
-    list_child.get_mut(tmp)
+    intern.focused = Some(tmp);
+    intern.list_child.get_mut(tmp)
 }

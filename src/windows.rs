@@ -1,6 +1,8 @@
 use crate::container::*;
+use crate::container_action::*;
 use crate::enum_key::*;
 use crate::keyboard::parse_input;
+use crate::layout::MoveDir;
 use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc;
@@ -71,7 +73,17 @@ pub fn start_wind(
                 _ => break,
             };
             match com {
-                ChildToParent::Refresh => draw_container(&mut child),
+                ChildToParent::Refresh(id) => draw_container(&mut child, &id),
+                ChildToParent::DestroyChild(id) => match destroy_container(&mut child, &id) {
+                    Err(_) => {
+                        if id == "-1" || id == "-2" {
+                            ()
+                        } else {
+                            break;
+                        }
+                    }
+                    Ok(_) => (),
+                },
                 ChildToParent::AddChild(cont) => {
                     child = match add_child_container(child, cont) {
                         Ok(ch) => ch,
@@ -81,6 +93,9 @@ pub fn start_wind(
                 ChildToParent::GetInputData(data, size) => {
                     let (data, size) = parse_input(data, size, &config);
                     get_input_container(data, size, &mut child);
+                }
+                ChildToParent::MoveFocus(dir) => {
+                    change_focus_container(&dir, &mut child);
                 }
                 _ => (),
             }
@@ -93,12 +108,28 @@ pub fn start_wind(
 fn create_keymap() -> Vec<KeyAction> {
     vec![
         KeyAction {
-            keycode: 13,
+            keycode: 13, // enter
             action: Action::AddPane,
         },
         KeyAction {
-            keycode: 141,
+            keycode: 113, // q
             action: Action::DeletePane,
+        },
+        KeyAction {
+            keycode: 106, // j
+            action: Action::MoveFocus(MoveDir::Left),
+        },
+        KeyAction {
+            keycode: 109, // m
+            action: Action::MoveFocus(MoveDir::Right),
+        },
+        KeyAction {
+            keycode: 107, // k
+            action: Action::MoveFocus(MoveDir::Up),
+        },
+        KeyAction {
+            keycode: 108, // l
+            action: Action::MoveFocus(MoveDir::Down),
         },
     ]
 }

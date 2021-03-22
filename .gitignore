@@ -2,3 +2,4 @@
 Cargo.lock
 Session.vim
 tags
+*.profraw

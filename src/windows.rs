@@ -2,6 +2,7 @@ use crate::container::*;
 use crate::container_action::*;
 use crate::enum_key::*;
 use crate::keyboard::parse_input;
+use crate::layout::MoveDir;
 use crate::size_utilis::*;
 use std::fs::File;
 use std::sync::mpsc;
@@ -94,7 +95,6 @@ pub fn start_wind(
                     get_input_container(data, size, &mut child);
                 }
                 ChildToParent::MoveFocus(dir) => {
-                    println!("yess");
                     change_focus_container(&dir, &mut child);
                 }
                 _ => (),
@@ -108,16 +108,28 @@ pub fn start_wind(
 fn create_keymap() -> Vec<KeyAction> {
     vec![
         KeyAction {
-            keycode: 13,
+            keycode: 13, // enter
             action: Action::AddPane,
         },
         KeyAction {
-            keycode: 113,
+            keycode: 113, // q
             action: Action::DeletePane,
         },
         KeyAction {
-            keycode: 100,
-            action: Action::MoveFocus,
+            keycode: 106, // j
+            action: Action::MoveFocus(MoveDir::Left),
+        },
+        KeyAction {
+            keycode: 109, // m
+            action: Action::MoveFocus(MoveDir::Right),
+        },
+        KeyAction {
+            keycode: 107, // k
+            action: Action::MoveFocus(MoveDir::Up),
+        },
+        KeyAction {
+            keycode: 108, // l
+            action: Action::MoveFocus(MoveDir::Down),
         },
     ]
 }

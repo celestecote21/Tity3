@@ -14,6 +14,14 @@ pub fn draw_container(cont: &mut Container, id: &str) {
     }
 }
 
+pub fn draw_cursor_container(cont: &mut Container) {
+    match cont {
+        Container::Split(sp) => sp.draw_cursor(),
+        Container::Pane(pa) => pa.draw_cursor(),
+        _ => panic!("not ful container can't be drawn"),
+    }
+}
+
 pub fn destroy_container(cont: &mut Container, id: &str) -> Result<(), ()> {
     match cont {
         Container::Split(sp) => sp.destroy(id),
@@ -79,4 +87,12 @@ pub fn change_focus_container(dir: &MoveDir, cont: &mut Container) {
         Container::Pane(pa) => pa.change_focus(dir),
         _ => panic!("this type of container have child"),
     };
+}
+
+pub fn container_focus_is_movable(cont: &Container, dir: &MoveDir) -> bool {
+    match cont {
+        Container::Split(sp) => sp.is_focus_movable(dir),
+        Container::Pane(pa) => false,
+        _ => panic!("this type of container have child"),
+    }
 }

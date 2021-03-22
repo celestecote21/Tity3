@@ -6,6 +6,27 @@ pub enum Direction {
     Horizontal,
 }
 
+impl Direction {
+    pub fn check_move_dir(&self, dir: &MoveDir) -> bool {
+        match self {
+            Direction::Vertical => {
+                if dir == &MoveDir::Down || dir == &MoveDir::Up {
+                    true
+                } else {
+                    false
+                }
+            }
+            Direction::Horizontal => {
+                if dir == &MoveDir::Left || dir == &MoveDir::Right {
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum MoveDir {
     Left,

@@ -7,6 +7,7 @@ use std::sync::mpsc::Sender;
 
 //TODO: make a new struct just for the interne in the thread because functions take to much args
 
+/// A type of container that can hold other container, put pane verticaly or horizontaly
 pub struct Split {
     parent_com: Sender<ChildToParent>,
     list_child: ContainerList,
@@ -16,6 +17,8 @@ pub struct Split {
 }
 
 impl Split {
+    /// create a new Split container, used only in the
+    /// [complet](crate::container::MiniContainer::complet) fonction of [MiniContainer](crate::container::MiniContainer)
     pub fn new(
         parent_com: Sender<ChildToParent>,
         rect: Rect,
@@ -43,8 +46,7 @@ impl Split {
         Ok(nw_split)
     }
 
-    /// the Split struct contains multiple other contenaire that can ben pane os other Split
-    /// So the draw fonction will call all the draw fonction of the child
+    /// The draw fonction will call draw fonction of childs
     pub fn draw(&mut self, id: &str) {
         // TODO: see with the id how to handle
         //let selfid_len = self.id.len();
@@ -84,6 +86,8 @@ impl Split {
         draw_cursor_container(focused_child.unwrap());
     }
 
+
+    /// It will pass the data to the focused child
     pub fn get_input(&mut self, data: [u8; 4096], size: usize) {
         if self.focused.is_none() {
             return;
@@ -98,6 +102,9 @@ impl Split {
         get_input_container(data, size, focused_child.unwrap());
     }
 
+    /// Create a new child in the split
+    ///
+    /// It will also resize all the previous children
     pub fn add_child(mut self, cont: Container) -> Result<Container, ContainerError> {
         let mut rect_child = self.layout.add_child();
         let nw_cont = match cont {
@@ -129,10 +136,17 @@ impl Split {
         Ok(Container::Split(self))
     }
 
+    /// Just return the id of the split
     pub fn get_id(&self) -> &str {
         &self.id
     }
 
+    /// Juste returne the type of the container
+    ///
+    /// It can be either:
+    ///  * [SSplit](crate::container::ContainerType::SSplit)
+    ///  * [VSplit](crate::container::ContainerType::VSplit)
+    /// depending if the split is Vertical on Horizontal
     pub fn get_type(&self) -> ContainerType {
         match self.layout.get_direction() {
             Direction::Horizontal => ContainerType::SSplit,
@@ -144,6 +158,10 @@ impl Split {
         self.id.eq(id_test)
     }
 
+    /// move the cursor, so the focus, on a differente child
+    ///
+    /// # Arguments
+    ///  * `dir` - the direction where the cursor will go
     pub fn change_focus(&mut self, dir: &MoveDir) {
         let focused_child = match self.list_child.get_mut(self.focused.unwrap()) {
             Some(child) => Some(child),
@@ -183,6 +201,12 @@ impl Split {
         container_focus_is_movable(focused_child, dir)
     }
 
+    /// Depending of the id it will destroy children or itself
+    ///
+    /// # Arguments
+    ///  * `id` - The id to kill or the "-1" or the "-2" special value
+    /// "-1" => it will destroy the container itself so all it child too
+    /// "-2" => destroy the focused child
     pub fn destroy(&mut self, id: &str) -> Result<(), ()> {
         let mut i = 0;
 
@@ -228,6 +252,8 @@ impl Split {
         Err(())
     }
 
+    /// Each Container have a Rect parametre that define it's size, this fonction permit to change
+    /// this rect bounds. So it resize all of it children
     fn update_rect_child(&mut self, rect_child: &mut Rect) {
         let direction = self.layout.get_direction();
         for ch in self.list_child.iter_mut() {

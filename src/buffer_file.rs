@@ -7,6 +7,7 @@ use std::io;
 use std::ops;
 use std::ptr;
 
+/// Juste a wrapper around [StdoutBuffer](crate::buffer_file::StdoutBuffer) to be deref
 pub struct StdoutBufferLock {
     stdoutBuffer: StdoutBuffer,
 }
@@ -33,7 +34,7 @@ impl ops::DerefMut for StdoutBufferLock {
     }
 }
 
-/// each pane will have a StdoutBuffer:
+/// Each pane will have a StdoutBuffer:
 /// the thread containing the process will send all the stdout here
 /// and this wil process the data to form a list of line
 /// the line will not be greater than the size of the pane

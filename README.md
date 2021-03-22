@@ -20,11 +20,11 @@ You can clone this repository and run `cargo run` to launch the program.
 
 ## Progress
 - [ ] Implementation of the stdout
-- [ ] Implementation of the stdin
+- [x] Implementation of the stdin
 - [x] pane creation
 - [x] pseudo-terminal management
-- [ ] pane drawing
-- [ ] having a better modular architecture
+- [x] pane drawing
+- [x] having a better modular architecture
 - [ ] split and tabbed mode
 - [ ] moving pane
 - [ ] multiple workspace
